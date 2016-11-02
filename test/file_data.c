@@ -14,7 +14,7 @@ int main() {
   write_file_data(&file_fcb, data_src, sizeof(int));
 
   struct my_fcb check_fcb;
-  read_file(file_fcb.id, &check_fcb);
+  read_file(&(file_fcb.id), &check_fcb);
 
   int* data_check = malloc(check_fcb.size);
   read_file_data(check_fcb, data_check);

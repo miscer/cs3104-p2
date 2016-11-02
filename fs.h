@@ -32,7 +32,7 @@ extern int root_is_empty;
 extern void error_handler(int);
 extern int read_root();
 extern int write_root();
-void print_id(uuid_t);
+void print_id(uuid_t *);
 void init_store();
 int update_root();
 

@@ -12,7 +12,7 @@ int main() {
   update_file(file_fcb);
 
   struct my_fcb check_fcb;
-  read_file(file_fcb.id, &check_fcb);
+  read_file(&(file_fcb.id), &check_fcb);
 
   assert((check_fcb.mode & (S_IRUSR|S_IWUSR)) == (S_IRUSR|S_IWUSR));
 

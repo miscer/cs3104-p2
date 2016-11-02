@@ -47,10 +47,10 @@ void error_handler(int rc){
 	}
 }
 
-void print_id(uuid_t id){
+void print_id(uuid_t *id){
  	size_t i;
-    for (i = 0; i < sizeof(uuid_t); i ++) {
-        printf("%02x ", id[i]);
+    for (i = 0; i < sizeof *id; i ++) {
+        printf("%02x ", (*id)[i]);
     }
 }
 
@@ -58,9 +58,9 @@ void print_id(uuid_t id){
 void init_store(){
 	int rc;
 	printf("init_store\n");
-	
+
 	uuid_clear(zero_uuid);
-	
+
 	// Open the database.
 	rc = unqlite_open(&pDb,DATABASE_NAME,UNQLITE_OPEN_CREATE);
 	if( rc != UNQLITE_OK ){ error_handler(rc); }
@@ -79,7 +79,7 @@ void init_store(){
     	if(rc==UNQLITE_OK){
 			printf("init_store: root object was found\n");
 	 		// If the id in the root object is null then set global root_is_empty value to 1.
-	 	 		
+
 	 		if(uuid_compare(zero_uuid,ROOT_OBJECT_ID)==0){
 	 			printf("init_store: root object found to be empty\n");
 	 			root_is_empty = 1;
@@ -103,4 +103,3 @@ int read_root(){
 int write_root(){
 	return unqlite_kv_store(pDb,ROOT_OBJECT_KEY,ROOT_OBJECT_KEY_SIZE,&root_object,ROOT_OBJECT_SIZE);
 }
-

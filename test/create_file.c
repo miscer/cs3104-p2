@@ -12,7 +12,7 @@ int main() {
   assert(file_fcb.gid == getgid());
 
   struct my_fcb check_fcb;
-  read_file(file_fcb.id, &check_fcb);
+  read_file(&(file_fcb.id), &check_fcb);
 
   assert(uuid_compare(file_fcb.id, check_fcb.id) == 0);
   assert(check_fcb.mtime == file_fcb.mtime);
