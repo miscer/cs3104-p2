@@ -17,5 +17,7 @@ int main() {
   assert(uuid_compare(file_fcb.id, check_fcb.id) == 0);
   assert(check_fcb.mtime == file_fcb.mtime);
 
+  puts("Test passed");
+
   unqlite_close(pDb);
 }

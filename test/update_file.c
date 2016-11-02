@@ -16,5 +16,7 @@ int main() {
 
   assert((check_fcb.mode & (S_IRUSR|S_IWUSR)) == (S_IRUSR|S_IWUSR));
 
+  puts("Test passed");
+
   unqlite_close(pDb);
 }

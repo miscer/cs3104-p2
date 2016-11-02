@@ -10,6 +10,10 @@ void create_directory(mode_t mode, struct my_fcb *dir_fcb) {
 
   uuid_generate(dir_fcb->id);
 
+  puts("Creating directory...");
+  print_id(dir_fcb->id);
+  puts("\n");
+
   int rc = unqlite_kv_store(pDb, &(dir_fcb->id), KEY_SIZE, dir_fcb, sizeof(struct my_fcb));
 
   if (rc != UNQLITE_OK) {
@@ -27,6 +31,10 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
 
   uuid_generate(file_fcb->id);
 
+  puts("Creating file...");
+  print_id(file_fcb->id);
+  puts("\n");
+
   int rc = unqlite_kv_store(pDb, &(file_fcb->id), KEY_SIZE, file_fcb, sizeof(struct my_fcb));
 
   if (rc != UNQLITE_OK) {
@@ -35,10 +43,16 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
 }
 
 void read_file(uuid_t id, struct my_fcb* file_fcb) {
+  puts("Reading file...");
+  print_id(id);
+  puts("\n");
+
   unqlite_int64 size = sizeof(struct my_fcb);
   int rc = unqlite_kv_fetch(pDb, id, KEY_SIZE, file_fcb, &size);
 
-  if (rc != UNQLITE_OK) {
+  if (rc == UNQLITE_NOTFOUND) {
+    puts("File not found");
+  } else if (rc != UNQLITE_OK) {
     error_handler(rc);
   }
 }

@@ -47,10 +47,10 @@ void error_handler(int rc){
 	}
 }
 
-void print_id(uuid_t *id){
- 	size_t i; 
-    for (i = 0; i < sizeof *id; i ++) {
-        printf("%02x ", (*id)[i]);
+void print_id(uuid_t id){
+ 	size_t i;
+    for (i = 0; i < sizeof(uuid_t); i ++) {
+        printf("%02x ", id[i]);
     }
 }
 

@@ -18,5 +18,7 @@ int main() {
   assert(check_fcb.mtime == dir_fcb.mtime);
   assert(check_fcb.mode & S_IFDIR);
 
+  puts("Test passed");
+
   unqlite_close(pDb);
 }
