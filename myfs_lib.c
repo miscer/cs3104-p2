@@ -33,3 +33,11 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
     error_handler(rc);
   }
 }
+
+void update_file(struct my_fcb file_fcb) {
+  int rc = unqlite_kv_store(pDb, &(file_fcb.id), KEY_SIZE, &file_fcb, sizeof(struct my_fcb));
+
+  if (rc != UNQLITE_OK) {
+    error_handler(rc);
+  }
+}

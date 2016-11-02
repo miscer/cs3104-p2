@@ -7,7 +7,7 @@ TARGET = myfs
 
 all: $(TARGET)
 
-tests: test/create_dir test/create_file
+tests: test/create_dir test/create_file test/update_file
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
