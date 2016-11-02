@@ -14,7 +14,11 @@ struct my_fcb {
 	uuid_t data;  /* data */
 };
 
-struct my_dirent {
+struct my_dir_header {
+  int items;
+};
+
+struct my_dir_entry {
   char name[MY_MAX_PATH];
   uuid_t fcb_id;
 };

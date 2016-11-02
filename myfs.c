@@ -58,7 +58,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
     void* dir_data = malloc(dir_fcb.size);
     read_file_data(dir_fcb, dir_data);
 
-    struct my_dirent* dir_entry = dir_data;
+    struct my_dir_entry* dir_entry = dir_data;
     filler(buf, dir_entry->name, NULL, 0);
   }
 
@@ -107,7 +107,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     create_file(mode, &file_fcb);
 
     char* file_name = path_file_name(path);
-    add_dir_entry(dir_fcb, file_fcb, file_name);
+    add_dir_entry(&dir_fcb, &file_fcb, file_name);
     free(file_name);
 
     return 0;

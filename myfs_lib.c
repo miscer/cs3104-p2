@@ -19,6 +19,9 @@ void create_directory(mode_t mode, struct my_fcb *dir_fcb) {
   if (rc != UNQLITE_OK) {
     error_handler(rc);
   }
+
+  struct my_dir_header dir_header = {0};
+  write_file_data(dir_fcb, &dir_header, sizeof(dir_header));
 }
 
 void create_file(mode_t mode, struct my_fcb* file_fcb) {
@@ -97,5 +100,52 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size) {
 
   if (rc != UNQLITE_OK) {
     error_handler(rc);
+  }
+}
+
+void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  size_t size = dir_fcb->size + sizeof(struct my_dir_entry);
+
+  void* dir_data = malloc(size);
+  read_file_data(*dir_fcb, dir_data);
+
+  struct my_dir_header* dir_header = dir_data;
+  struct my_dir_entry* dir_entry = dir_data + sizeof(struct my_dir_header) +
+    dir_header->items * sizeof(struct my_dir_entry);
+
+  strncpy(dir_entry->name, name, MY_MAX_PATH - 1);
+  uuid_copy(dir_entry->fcb_id, file_fcb->id);
+
+  dir_header->items++;
+
+  write_file_data(dir_fcb, dir_data, size);
+  free(dir_data);
+}
+
+void remove_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+
+}
+
+void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
+  iter->position = 0;
+  iter->dir_data = malloc(dir_fcb->size);
+
+  read_file_data(*dir_fcb, iter->dir_data);
+}
+
+struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
+  struct my_dir_header* dir_header = iter->dir_data;
+
+  if (iter->position < dir_header->items) {
+    struct my_dir_entry* entry =
+      iter->dir_data + sizeof(struct my_dir_header) +
+      iter->position * sizeof(struct my_dir_entry);
+
+    iter->position++;
+
+    return entry;
+  } else {
+    free(iter->dir_data);
+    return NULL;
   }
 }
