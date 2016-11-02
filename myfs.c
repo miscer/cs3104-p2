@@ -148,7 +148,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   read_file_data(file_fcb, file_data);
 
   memcpy(file_data + offset, buf, size);
-  write_file_data(file_fcb, file_data);
+  write_file_data(file_fcb, file_data, file_fcb.size);
 
   return 0;
 }
@@ -176,10 +176,7 @@ static int myfs_truncate(const char *path, off_t newsize){
     memcpy(new_file_data, old_file_data, file_fcb.size);
   }
 
-  file_fcb.size = newsize;
-  update_file(file_fcb);
-
-  write_file_data(file_fcb, new_file_data);
+  write_file_data(file_fcb, new_file_data, newsize);
 
 	return 0;
 }
