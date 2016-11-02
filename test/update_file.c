@@ -12,8 +12,7 @@ int main() {
   update_file(file_fcb);
 
   struct my_fcb check_fcb;
-  unqlite_int64 size = sizeof(struct my_fcb);
-  unqlite_kv_fetch(pDb, file_fcb.id, KEY_SIZE, &check_fcb, &size);
+  read_file(file_fcb.id, &check_fcb);
 
   assert((check_fcb.mode & (S_IRUSR|S_IWUSR)) == (S_IRUSR|S_IWUSR));
 

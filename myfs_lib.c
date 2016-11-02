@@ -34,6 +34,15 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
   }
 }
 
+void read_file(uuid_t id, struct my_fcb* file_fcb) {
+  unqlite_int64 size = sizeof(struct my_fcb);
+  int rc = unqlite_kv_fetch(pDb, id, KEY_SIZE, file_fcb, &size);
+
+  if (rc != UNQLITE_OK) {
+    error_handler(rc);
+  }
+}
+
 void update_file(struct my_fcb file_fcb) {
   int rc = unqlite_kv_store(pDb, &(file_fcb.id), KEY_SIZE, &file_fcb, sizeof(struct my_fcb));
 

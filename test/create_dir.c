@@ -12,11 +12,11 @@ int main() {
   assert(dir_fcb.gid == getgid());
 
   struct my_fcb check_fcb;
-  unqlite_int64 size = sizeof(struct my_fcb);
-  unqlite_kv_fetch(pDb, dir_fcb.id, KEY_SIZE, &check_fcb, &size);
+  read_file(dir_fcb.id, &check_fcb);
 
   assert(uuid_compare(dir_fcb.id, check_fcb.id) == 0);
   assert(check_fcb.mtime == dir_fcb.mtime);
+  assert(check_fcb.mode & S_IFDIR);
 
   unqlite_close(pDb);
 }
