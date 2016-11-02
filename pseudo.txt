@@ -1,0 +1,122 @@
+def getattr(path)
+  file_fcb = find_file(path)
+
+  if file_fcb is empty
+    return ENOENT
+  else
+    return file_fcb.to_stat()
+
+def create(path, mode)
+  dir_fcb, file_fcb = find_dir_entry(path)
+
+  if dir_fcb is empty
+    return ENOENT
+  else if file_fcb is not empty
+    return EEXIST
+  else
+    file_fcb = create_file(mode)
+    rest, name = path_pop_back(path)
+    add_dir_entry(dir_fcb, file_fcb, name)
+
+def read(path, size, offset)
+  file_fcb = find_file(path)
+
+  if file_fcb is empty
+    return ENOENT
+
+  file_data = read_file_data(file_fcb)
+  return file_data.slice(size, offset)
+
+def write(path, data, size, offset)
+  file_fcb = find_file(path)
+
+  if file_fcb is empty
+    return ENOENT
+
+  file_data = read_file_data(file_fcb)
+  file_data.update(data, size, offset)
+  write_file_data(file_fcb, file_data)
+
+def truncate(path, size)
+
+def chown(path, uid, gid)
+  file_fcb = find_file(path)
+
+  if file_fcb is empty
+    return ENOENT
+
+  file_fcb.update(uid, gid)
+  update_file(file_fcb)
+
+def unlink(path)
+  dir_fcb, file_fcb = find_dir_entry(path)
+
+  if file_id is empty
+    return ENOENT
+
+  remove_dir_entry(dir_fcb, file_fcb)
+  remove_file(file_fcb)
+
+def mkdir(path)
+  parent_fcb, dir_fcb = find_dir_entry(path)
+
+  if parent_fcb is empty
+    return ENOENT
+  else if dir_fcb is not empty
+    return EEXIST
+
+  dir_fcb = create_directory()
+  rest, name = path_pop_back(path)
+  add_dir_entry(parent_fcb, dir_fcb, name)
+
+def rmdir(path)
+  parent_fcb, dir_fcb = find_dir_entry(path)
+
+  if dir_fcb is empty
+    return ENOENT
+
+  if dir_fcb.size > 0
+    return ENOTEMPTY
+
+  remove_dir_entry(parent_fcb, dir_fcb)
+  remove_file(dir_fcb)
+
+def readdir(path)
+  dir_fcb = find_file(path)
+
+  if dir_fcb is empty
+    return ENOENT
+
+  dir_data = read_file_data(dir_fcb)
+
+  for path, id in dir_data
+    yield path
+
+def find_file(path)
+  dir_fcb, file_fcb = find_dir_entry(path)
+  return file_fcb
+
+def find_dir_entry(path)
+  dir_fcb = get_root_directory()
+
+
+
+def create_file(mode)
+
+def update_file(file_fcb)
+
+def remove_file(file_fcb)
+
+def read_file_data(file)
+
+def write_file_data(file, data)
+
+def create_directory(mode)
+
+def add_dir_entry(dir_fcb, file_fcb, name)
+
+def remove_dir_entry(dir_fcb, file_fcb)
+
+def path_pop_front(path)
+
+def path_pop_back(path)
