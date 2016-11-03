@@ -44,6 +44,8 @@ int main() {
   entry = next_dir_entry(&iter);
   assert(entry == NULL);
 
+  clean_dir_iterator(&iter);
+
   puts("Test passed");
 
   unqlite_close(pDb);

@@ -145,9 +145,12 @@ struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
 
     return entry;
   } else {
-    free(iter->dir_data);
     return NULL;
   }
+}
+
+void clean_dir_iterator(struct my_dir_iter* iter) {
+  free(iter->dir_data);
 }
 
 int find_file(const char* path, struct my_fcb* file_fcb) {
@@ -176,8 +179,10 @@ int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file
 
   if (found) {
     read_file(&(entry->fcb_id), file_fcb);
+    clean_dir_iterator(&iter);
     return MYFS_FIND_FOUND;
   } else {
+    clean_dir_iterator(&iter);
     return MYFS_FIND_NO_FILE;
   }
 }
