@@ -5,8 +5,6 @@
 */
 
 #define FUSE_USE_VERSION 26
-#define MYFS_NO_DIR -1
-#define MYFS_NO_FILE -2
 
 #include <fuse.h>
 #include <errno.h>
@@ -21,7 +19,7 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) < 0) {
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT");
     return -ENOENT;
   }
@@ -46,7 +44,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
 
   struct my_fcb dir_fcb;
 
-  if (find_file(path, &dir_fcb) < 0) {
+  if (find_file(path, &dir_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_readdir - ENOENT");
     return -ENOENT;
   }
@@ -72,7 +70,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) < 0) {
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_read - ENOENT");
     return -ENOENT;
   }
@@ -95,7 +93,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 
   int result = find_dir_entry(path, &dir_fcb, &file_fcb);
 
-  if (result == MYFS_NO_DIR) {
+  if (result == MYFS_FIND_NO_DIR) {
     write_log("myfs_create - ENOENT\n");
     return -ENOENT;
 
@@ -121,7 +119,7 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) < 0) {
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT");
     return -ENOENT;
   }
@@ -139,7 +137,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) < 0) {
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT");
     return -ENOENT;
   }
@@ -160,7 +158,7 @@ static int myfs_truncate(const char *path, off_t newsize){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) < 0) {
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT");
     return -ENOENT;
   }

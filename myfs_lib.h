@@ -1,5 +1,9 @@
 #include "myfs.h"
 
+#define MYFS_FIND_FOUND 0
+#define MYFS_FIND_NO_DIR -1
+#define MYFS_FIND_NO_FILE -2
+
 struct my_dir_iter {
   int position;
   void* dir_data;

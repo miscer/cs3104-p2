@@ -149,3 +149,35 @@ struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
     return NULL;
   }
 }
+
+int find_file(const char* path, struct my_fcb* file_fcb) {
+  struct my_fcb dir_fcb;
+  return find_dir_entry(path, &dir_fcb, file_fcb);
+}
+
+int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+  char* filename = path + 1;
+
+  struct my_fcb root_dir;
+  read_file(&(root_object.id), &root_dir);
+
+  struct my_dir_iter iter;
+  iterate_dir_entries(&root_dir, &iter);
+
+  struct my_dir_entry* entry;
+  char found = 0;
+
+  while ((entry = next_dir_entry(&iter)) != NULL) {
+    if (strcmp(entry->name, filename) == 0) {
+      found = 1;
+      break;
+    }
+  }
+
+  if (found) {
+    read_file(&(entry->fcb_id), file_fcb);
+    return MYFS_FIND_FOUND;
+  } else {
+    return MYFS_FIND_NO_FILE;
+  }
+}
