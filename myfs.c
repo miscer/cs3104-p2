@@ -83,7 +83,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
 
   memcpy(buf, file_data + offset, size);
 
-	return 0;
+	return size;
 }
 
 // This file system only supports one file. Create should fail if a file has been created. Path must be '/<something>'.
@@ -144,13 +144,21 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
     return -ENOENT;
   }
 
-  void* file_data = malloc(file_fcb.size);
+  size_t data_size;
+
+  if ((offset + size) > file_fcb.size) {
+    data_size = offset + size;
+  } else {
+    data_size = file_fcb.size;
+  }
+
+  void* file_data = malloc(data_size);
   read_file_data(file_fcb, file_data);
 
   memcpy(file_data + offset, buf, size);
-  write_file_data(&file_fcb, file_data, file_fcb.size);
+  write_file_data(&file_fcb, file_data, data_size);
 
-  return 0;
+  return size;
 }
 
 // Set the size of a file.
