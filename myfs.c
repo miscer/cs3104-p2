@@ -146,7 +146,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   read_file_data(file_fcb, file_data);
 
   memcpy(file_data + offset, buf, size);
-  write_file_data(file_fcb, file_data, file_fcb.size);
+  write_file_data(&file_fcb, file_data, file_fcb.size);
 
   return 0;
 }
@@ -174,7 +174,7 @@ static int myfs_truncate(const char *path, off_t newsize){
     memcpy(new_file_data, old_file_data, file_fcb.size);
   }
 
-  write_file_data(file_fcb, new_file_data, newsize);
+  write_file_data(&file_fcb, new_file_data, newsize);
 
 	return 0;
 }
@@ -262,22 +262,22 @@ static struct fuse_operations myfs_oper = {
 // and write it to the store. Note that this code is executed outide of fuse. If there is a failure then we have failed toi initlaise the
 // file system so exit with an error code.
 void init_fs(){
-	write_log("init_fs\n");
+	printf("init_fs\n");
 
 	// Initialise the store.
 	init_store();
 
 	if (root_is_empty) {
-		write_log("init_fs: root is empty\n");
+		printf("init_fs: root is empty\n");
 
-    write_log("init_fs: creating root directory\n");
+    printf("init_fs: creating root directory\n");
 
     struct my_fcb root_dir_fcb;
 		create_directory(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, &root_dir_fcb);
 
 		printf("init_fs: writing updated root object\n");
 
-    memcpy(root_object.id, root_dir_fcb.id, sizeof(uuid_t));
+    uuid_copy(root_object.id, root_dir_fcb.id);
 		int rc = write_root();
 
 	 	if (rc != UNQLITE_OK) {
