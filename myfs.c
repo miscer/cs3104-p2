@@ -52,13 +52,16 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
 
-  if (dir_fcb.size > 0) {
-    void* dir_data = malloc(dir_fcb.size);
-    read_file_data(dir_fcb, dir_data);
+  struct my_dir_iter iter;
+  iterate_dir_entries(&dir_fcb, &iter);
 
-    struct my_dir_entry* dir_entry = dir_data;
-    filler(buf, dir_entry->name, NULL, 0);
+  struct my_dir_entry* entry;
+
+  while ((entry = next_dir_entry(&iter)) != NULL) {
+    filler(buf, entry->name, NULL, 0);
   }
+
+  clean_dir_iterator(&iter);
 
 	return 0;
 }
@@ -97,7 +100,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     write_log("myfs_create - ENOENT\n");
     return -ENOENT;
 
-  } else if (result == 0) {
+  } else if (result == MYFS_FIND_FOUND) {
     write_log("myfs_create - EEXIST\n");
     return -EEXIST;
 
@@ -106,7 +109,6 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 
     char* file_name = path_file_name(path);
     add_dir_entry(&dir_fcb, &file_fcb, file_name);
-    free(file_name);
 
     return 0;
   }

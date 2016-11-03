@@ -159,14 +159,18 @@ int find_file(const char* path, struct my_fcb* file_fcb) {
 }
 
 int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
-  char* filename = path + 1;
-
   struct my_fcb root_dir;
   read_file(&(root_object.id), &root_dir);
+
+  if (strcmp(path, "/") == 0) {
+    memcpy(file_fcb, &root_dir, sizeof(struct my_fcb));
+    return MYFS_FIND_FOUND;
+  }
 
   struct my_dir_iter iter;
   iterate_dir_entries(&root_dir, &iter);
 
+  char* filename = path + 1;
   struct my_dir_entry* entry;
   char found = 0;
 
@@ -177,6 +181,8 @@ int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file
     }
   }
 
+  memcpy(dir_fcb, &root_dir, sizeof(struct my_fcb));
+
   if (found) {
     read_file(&(entry->fcb_id), file_fcb);
     clean_dir_iterator(&iter);
@@ -184,5 +190,14 @@ int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file
   } else {
     clean_dir_iterator(&iter);
     return MYFS_FIND_NO_FILE;
+  }
+}
+
+char* path_file_name(const char* path) {
+  if (path[0] == '/') {
+    return path + 1;
+  } else {
+    printf("Got a weird path %s\n", path);
+    return path;
   }
 }
