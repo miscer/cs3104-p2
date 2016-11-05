@@ -104,26 +104,68 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size) {
 }
 
 void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
-  size_t size = dir_fcb->size + sizeof(struct my_dir_entry);
+  size_t data_size = dir_fcb->size;
+  size_t max_size = data_size + sizeof(struct my_dir_entry);
 
-  void* dir_data = malloc(size);
+  void* dir_data = malloc(max_size);
   read_file_data(*dir_fcb, dir_data);
 
   struct my_dir_header* dir_header = dir_data;
-  struct my_dir_entry* dir_entry = dir_data + sizeof(struct my_dir_header) +
-    dir_header->items * sizeof(struct my_dir_entry);
 
-  strncpy(dir_entry->name, name, MY_MAX_PATH - 1);
-  uuid_copy(dir_entry->fcb_id, file_fcb->id);
+  struct my_dir_entry* free_entry = NULL;
 
-  dir_header->items++;
+  for (int n = 0; n < dir_header->items; n++) {
+    struct my_dir_entry* dir_entry = dir_data + sizeof(struct my_dir_header) +
+      n * sizeof(struct my_dir_entry);
 
-  write_file_data(dir_fcb, dir_data, size);
+    if (!dir_entry->used) {
+      free_entry = dir_entry;
+      break;
+    }
+  }
+
+  if (free_entry == NULL) {
+    data_size = max_size;
+    free_entry = dir_data + sizeof(struct my_dir_header) +
+      dir_header->items * sizeof(struct my_dir_entry);
+    dir_header->items++;
+  }
+
+  strncpy(free_entry->name, name, MY_MAX_PATH - 1);
+  uuid_copy(free_entry->fcb_id, file_fcb->id);
+  free_entry->used = 1;
+
+  write_file_data(dir_fcb, dir_data, data_size);
   free(dir_data);
 }
 
-void remove_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+int remove_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+  void* dir_data = malloc(dir_fcb->size);
+  read_file_data(*dir_fcb, dir_data);
 
+  struct my_dir_header* dir_header = dir_data;
+
+  struct my_dir_entry* dir_entry;
+  char found = 0;
+
+  for (int n = 0; n < dir_header->items; n++) {
+    dir_entry = dir_data + sizeof(struct my_dir_header) +
+      n * sizeof(struct my_dir_entry);
+
+    if (uuid_compare(dir_entry->fcb_id, file_fcb->id) == 0) {
+      found = 1;
+      break;
+    }
+  }
+
+  if (found) {
+    memset(dir_entry, 0, sizeof(struct my_dir_entry));
+    write_file_data(dir_fcb, dir_data, dir_fcb->size);
+
+    return 0;
+  } else {
+    return -1;
+  }
 }
 
 void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
@@ -136,17 +178,19 @@ void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
 struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
   struct my_dir_header* dir_header = iter->dir_data;
 
-  if (iter->position < dir_header->items) {
+  while (iter->position < dir_header->items) {
     struct my_dir_entry* entry =
       iter->dir_data + sizeof(struct my_dir_header) +
       iter->position * sizeof(struct my_dir_entry);
 
     iter->position++;
 
-    return entry;
-  } else {
-    return NULL;
+    if (entry->used) {
+      return entry;
+    }
   }
+
+  return NULL;
 }
 
 void clean_dir_iterator(struct my_dir_iter* iter) {

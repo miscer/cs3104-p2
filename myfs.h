@@ -21,4 +21,5 @@ struct my_dir_header {
 struct my_dir_entry {
   char name[MY_MAX_PATH];
   uuid_t fcb_id;
+  char used;
 };
