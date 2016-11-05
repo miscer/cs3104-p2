@@ -218,7 +218,19 @@ static int myfs_mkdir(const char *path, mode_t mode){
 static int myfs_unlink(const char *path){
 	write_log("myfs_unlink: %s\n",path);
 
-  return 0;
+  struct my_fcb dir_fcb;
+  struct my_fcb file_fcb;
+
+  int result = find_dir_entry(path, &dir_fcb, &file_fcb);
+
+  if (result == MYFS_FIND_FOUND) {
+    remove_dir_entry(&dir_fcb, &file_fcb);
+
+    return 0;
+  } else {
+    write_log("myfs_unlink - ENOENT\n");
+    return -ENOENT;
+  }
 }
 
 // Delete a directory.
@@ -265,6 +277,7 @@ static struct fuse_operations myfs_oper = {
 	.truncate = myfs_truncate,
 	.flush = myfs_flush,
 	.release = myfs_release,
+  .unlink = myfs_unlink,
 };
 
 
