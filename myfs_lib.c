@@ -45,7 +45,7 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
   }
 }
 
-void read_file(uuid_t *id, struct my_fcb* file_fcb) {
+int read_file(uuid_t *id, struct my_fcb* file_fcb) {
   puts("Reading file...");
   print_id(id);
   puts("\n");
@@ -53,10 +53,16 @@ void read_file(uuid_t *id, struct my_fcb* file_fcb) {
   unqlite_int64 size = sizeof(struct my_fcb);
   int rc = unqlite_kv_fetch(pDb, id, KEY_SIZE, file_fcb, &size);
 
-  if (rc == UNQLITE_NOTFOUND) {
+  if (rc == UNQLITE_OK) {
+    return 0;
+
+  } else if (rc == UNQLITE_NOTFOUND) {
     puts("File not found");
-  } else if (rc != UNQLITE_OK) {
+    return -1;
+
+  } else {
     error_handler(rc);
+    return -2;
   }
 }
 
@@ -70,6 +76,17 @@ void update_file(struct my_fcb file_fcb) {
   if (rc != UNQLITE_OK) {
     error_handler(rc);
   }
+}
+
+void remove_file(struct my_fcb* file_fcb) {
+  puts("Removing file...");
+  print_id(&(file_fcb->id));
+  puts("\n");
+
+  int rc = unqlite_kv_delete(pDb, &(file_fcb->id), KEY_SIZE);
+  if (rc != UNQLITE_OK) error_handler(rc);
+
+  unqlite_kv_delete(pDb, &(file_fcb->data), KEY_SIZE);
 }
 
 void read_file_data(struct my_fcb file_fcb, void* buffer) {

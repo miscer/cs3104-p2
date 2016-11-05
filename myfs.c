@@ -225,6 +225,7 @@ static int myfs_unlink(const char *path){
 
   if (result == MYFS_FIND_FOUND) {
     remove_dir_entry(&dir_fcb, &file_fcb);
+    remove_file(&file_fcb);
 
     return 0;
   } else {
