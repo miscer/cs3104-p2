@@ -231,7 +231,7 @@ int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file
   struct my_dir_iter iter;
   iterate_dir_entries(&root_dir, &iter);
 
-  char* filename = path + 1;
+  char* filename = (char*)path + 1;
   struct my_dir_entry* entry;
   char found = 0;
 
@@ -256,9 +256,9 @@ int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file
 
 char* path_file_name(const char* path) {
   if (path[0] == '/') {
-    return path + 1;
+    return (char*)path + 1;
   } else {
     printf("Got a weird path %s\n", path);
-    return path;
+    return (char*)path;
   }
 }
