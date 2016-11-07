@@ -107,8 +107,10 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
   } else {
     create_file(mode, &file_fcb);
 
-    char* file_name = path_file_name(path);
+		char* path_dup = strdup(path);
+    char* file_name = path_file_name(path_dup);
     add_dir_entry(&dir_fcb, &file_fcb, file_name);
+		free(path_dup);
 
     return 0;
   }
@@ -208,9 +210,31 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
 // Create a directory.
 // Read 'man 2 mkdir'.
 static int myfs_mkdir(const char *path, mode_t mode){
-	write_log("myfs_mkdir: %s\n",path);
+	write_log("myfs_mkdir: %s\n", path);
 
-  return 0;
+	struct my_fcb parent_fcb;
+  struct my_fcb dir_fcb;
+
+  int result = find_dir_entry(path, &parent_fcb, &dir_fcb);
+
+  if (result == MYFS_FIND_NO_DIR) {
+    write_log("myfs_mkdir - ENOENT\n");
+    return -ENOENT;
+
+  } else if (result == MYFS_FIND_FOUND) {
+    write_log("myfs_mkdir - EEXIST\n");
+    return -EEXIST;
+
+  } else {
+    create_directory(mode, &dir_fcb);
+
+		char* path_dup = strdup(path);
+    char* dir_name = path_file_name(path_dup);
+    add_dir_entry(&parent_fcb, &dir_fcb, dir_name);
+		free(path_dup);
+
+    return 0;
+  }
 }
 
 // Delete a file.
@@ -278,7 +302,8 @@ static struct fuse_operations myfs_oper = {
 	.truncate = myfs_truncate,
 	.flush = myfs_flush,
 	.release = myfs_release,
-  .unlink = myfs_unlink,
+	.unlink = myfs_unlink,
+  .mkdir = myfs_mkdir,
 };
 
 
