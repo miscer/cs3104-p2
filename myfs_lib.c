@@ -219,46 +219,74 @@ int find_file(const char* path, struct my_fcb* file_fcb) {
   return find_dir_entry(path, &dir_fcb, file_fcb);
 }
 
-int find_dir_entry(const char* path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+int find_dir_entry(const char* full_path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
   struct my_fcb root_dir;
   read_file(&(root_object.id), &root_dir);
 
-  if (strcmp(path, "/") == 0) {
-    memcpy(file_fcb, &root_dir, sizeof(struct my_fcb));
-    return MYFS_FIND_FOUND;
-  }
+  memcpy(file_fcb, &root_dir, sizeof(struct my_fcb));
 
-  struct my_dir_iter iter;
-  iterate_dir_entries(&root_dir, &iter);
+  char* path = strdup(full_path);
+  char* entry_name = path_split(&path);
 
-  char* filename = (char*)path + 1;
-  struct my_dir_entry* entry;
-  char found = 0;
+  while (entry_name != NULL) {
+    memcpy(dir_fcb, file_fcb, sizeof(struct my_fcb));
 
-  while ((entry = next_dir_entry(&iter)) != NULL) {
-    if (strcmp(entry->name, filename) == 0) {
-      found = 1;
-      break;
+    struct my_dir_iter iter;
+    iterate_dir_entries(dir_fcb, &iter);
+
+    struct my_dir_entry* entry;
+    char found = 0;
+
+    while ((entry = next_dir_entry(&iter)) != NULL) {
+      if (strcmp(entry_name, entry->name) == 0) {
+        found = 1;
+        break;
+      }
+    }
+
+    if (found) {
+      read_file(&(entry->fcb_id), file_fcb);
+      entry_name = path_split(&path);
+    }
+
+    clean_dir_iterator(&iter);
+
+    if (!found) {
+      free(path);
+      return (path == NULL) ? MYFS_FIND_NO_FILE : MYFS_FIND_NO_DIR;
     }
   }
 
-  memcpy(dir_fcb, &root_dir, sizeof(struct my_fcb));
+  free(path);
+  return MYFS_FIND_FOUND;
+}
 
-  if (found) {
-    read_file(&(entry->fcb_id), file_fcb);
-    clean_dir_iterator(&iter);
-    return MYFS_FIND_FOUND;
+char* path_split(char** path) {
+  char* head = strsep(path, "/");
+
+  if (head == NULL) {
+    return NULL;
+  } else if (*head == '\0') {
+    if (path != NULL) {
+      return path_split(path);
+    } else {
+      return NULL;
+    }
   } else {
-    clean_dir_iterator(&iter);
-    return MYFS_FIND_NO_FILE;
+    return head;
   }
 }
 
-char* path_file_name(const char* path) {
-  if (path[0] == '/') {
-    return (char*)path + 1;
-  } else {
-    printf("Got a weird path %s\n", path);
-    return (char*)path;
+char* path_file_name(char* path) {
+  char* file_name = path_split(&path);
+
+  while (path != NULL) {
+    char* next_file_name = path_split(&path);
+
+    if (next_file_name != NULL) {
+      file_name = next_file_name;
+    }
   }
+
+  return file_name;
 }

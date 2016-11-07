@@ -23,4 +23,5 @@ int remove_dir_entry(struct my_fcb*, struct my_fcb*);
 void iterate_dir_entries(struct my_fcb*, struct my_dir_iter*);
 struct my_dir_entry* next_dir_entry(struct my_dir_iter*);
 void clean_dir_iterator(struct my_dir_iter*);
-char* path_file_name(const char*);
+char* path_split(char**);
+char* path_file_name(char*);
