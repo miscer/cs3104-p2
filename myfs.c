@@ -366,6 +366,52 @@ static int myfs_link(const char* from, const char* to) {
   }
 }
 
+static int myfs_rename(const char* from, const char* to) {
+  write_log("myfs_rename(from=\"%s\", to=\"%s\")\n", from, to);
+  int result;
+
+  struct my_fcb from_dir;
+  struct my_fcb from_file;
+  result = find_dir_entry(from, &from_dir, &from_file);
+
+  if (result != MYFS_FIND_FOUND) {
+    write_log("myfs_rename - ENOENT\n");
+    return -ENOENT;
+  }
+
+  struct my_fcb to_dir;
+  struct my_fcb to_file;
+  result = find_dir_entry(to, &to_dir, &to_file);
+
+  if (result == MYFS_FIND_NO_DIR) {
+    write_log("myfs_rename - ENOENT\n");
+    return -ENOENT;
+  }
+
+  char* to_dup = strdup(to);
+  char* to_file_name = path_file_name(to_dup);
+
+  char* from_dup = strdup(from);
+  char* from_file_name = path_file_name(from_dup);
+
+  if (result == MYFS_FIND_FOUND) {
+    unlink_file(&to_dir, &to_file, to_file_name);
+  }
+
+  if (uuid_compare(from_dir.id, to_dir.id) == 0) {
+    remove_dir_entry(&from_dir, from_file_name);
+    add_dir_entry(&from_dir, &from_file, to_file_name);
+  } else {
+    remove_dir_entry(&from_dir, from_file_name);
+    add_dir_entry(&to_dir, &from_file, to_file_name);
+  }
+
+  free(to_dup);
+  free(from_dup);
+
+  return 0;
+}
+
 // OPTIONAL - included as an example
 // Flush any cached data.
 static int myfs_flush(const char *path, struct fuse_file_info *fi){
@@ -408,6 +454,7 @@ static struct fuse_operations myfs_oper = {
   .chmod = myfs_chmod,
   .chown = myfs_chown,
 	.link = myfs_link,
+  .rename = myfs_rename,
 };
 
 
