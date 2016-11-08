@@ -25,3 +25,4 @@ struct my_dir_entry* next_dir_entry(struct my_dir_iter*);
 void clean_dir_iterator(struct my_dir_iter*);
 char* path_split(char**);
 char* path_file_name(char*);
+char is_directory(struct my_fcb*);

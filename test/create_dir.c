@@ -8,6 +8,7 @@ int main() {
   struct my_fcb dir_fcb;
   create_directory(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, &dir_fcb);
 
+  assert(is_directory(&dir_fcb));
   assert(dir_fcb.uid == getuid());
   assert(dir_fcb.gid == getgid());
 
@@ -16,7 +17,7 @@ int main() {
 
   assert(uuid_compare(dir_fcb.id, check_fcb.id) == 0);
   assert(check_fcb.mtime == dir_fcb.mtime);
-  assert(check_fcb.mode & S_IFDIR);
+  assert(is_directory(&check_fcb));
 
   puts("Test passed");
 

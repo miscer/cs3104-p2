@@ -219,16 +219,23 @@ int find_file(const char* path, struct my_fcb* file_fcb) {
   return find_dir_entry(path, &dir_fcb, file_fcb);
 }
 
-int find_dir_entry(const char* full_path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+int find_dir_entry(const char* const_path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
   struct my_fcb root_dir;
   read_file(&(root_object.id), &root_dir);
 
   memcpy(file_fcb, &root_dir, sizeof(struct my_fcb));
 
-  char* path = strdup(full_path);
+  char* full_path = strdup(const_path);
+  char* path = full_path;
+
   char* entry_name = path_split(&path);
 
   while (entry_name != NULL) {
+    if (!is_directory(file_fcb)) {
+      free(full_path);
+      return MYFS_FIND_NO_DIR;
+    }
+
     memcpy(dir_fcb, file_fcb, sizeof(struct my_fcb));
 
     struct my_dir_iter iter;
@@ -252,7 +259,7 @@ int find_dir_entry(const char* full_path, struct my_fcb* dir_fcb, struct my_fcb*
     clean_dir_iterator(&iter);
 
     if (!found) {
-      free(path);
+      free(full_path);
       return (path == NULL) ? MYFS_FIND_NO_FILE : MYFS_FIND_NO_DIR;
     }
   }
@@ -289,4 +296,8 @@ char* path_file_name(char* path) {
   }
 
   return file_name;
+}
+
+char is_directory(struct my_fcb* fcb) {
+  return (fcb->mode & S_IFDIR) == S_IFDIR;
 }

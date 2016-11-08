@@ -35,6 +35,11 @@ int main() {
   find_file("/dir1/file3", &found_file);
   assert(uuid_compare(found_file.id, file3.id) == 0);
 
+  assert(find_file("/foo", &found_file) == MYFS_FIND_NO_FILE);
+  assert(find_file("/foo/bar", &found_file) == MYFS_FIND_NO_DIR);
+  assert(find_file("/dir1/foo", &found_file) == MYFS_FIND_NO_FILE);
+  assert(find_file("/file1/foo", &found_file) == MYFS_FIND_NO_DIR);
+
   puts("Test passed");
 
   unqlite_close(pDb);
