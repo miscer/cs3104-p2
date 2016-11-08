@@ -24,6 +24,8 @@ void iterate_dir_entries(struct my_fcb*, struct my_dir_iter*);
 struct my_dir_entry* next_dir_entry(struct my_dir_iter*);
 void clean_dir_iterator(struct my_dir_iter*);
 int get_directory_size(struct my_fcb*);
+void link_file(struct my_fcb*, struct my_fcb*, const char*);
+void unlink_file(struct my_fcb*, struct my_fcb*, const char*);
 char* path_split(char**);
 char* path_file_name(char*);
 char is_directory(struct my_fcb*);

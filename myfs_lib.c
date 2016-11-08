@@ -31,7 +31,7 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
   file_fcb->mtime = time(0);
   file_fcb->ctime = time(0);
   file_fcb->size = 0;
-  file_fcb->nlink = 1;
+  file_fcb->nlink = 0;
 
   uuid_generate(file_fcb->id);
 
@@ -223,6 +223,25 @@ int get_directory_size(struct my_fcb* dir_fcb) {
   free(dir_header);
 
   return size;
+}
+
+void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  add_dir_entry(dir_fcb, file_fcb, name);
+
+  file_fcb->nlink++;
+  update_file(*file_fcb);
+}
+
+void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  remove_dir_entry(dir_fcb, file_fcb);
+
+  if (file_fcb->nlink > 1) {
+    file_fcb->nlink--;
+    update_file(*file_fcb);
+
+  } else {
+    remove_file(file_fcb);
+  }
 }
 
 int find_file(const char* path, struct my_fcb* file_fcb) {
