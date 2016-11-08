@@ -224,6 +224,17 @@ static int myfs_chmod(const char *path, mode_t mode){
 static int myfs_chown(const char *path, uid_t uid, gid_t gid){
   write_log("myfs_chown(path=\"%s\", uid=%d, gid=%d)\n", path, uid, gid);
 
+  struct my_fcb file_fcb;
+
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+    write_log("myfs_getattr - ENOENT");
+    return -ENOENT;
+  }
+
+  file_fcb.uid = uid;
+  file_fcb.gid = gid;
+  update_file(file_fcb);
+
   return 0;
 }
 
@@ -349,6 +360,7 @@ static struct fuse_operations myfs_oper = {
 	.mkdir = myfs_mkdir,
   .rmdir = myfs_rmdir,
   .chmod = myfs_chmod,
+  .chown = myfs_chown,
 };
 
 
