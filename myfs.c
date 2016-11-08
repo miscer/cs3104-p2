@@ -280,7 +280,15 @@ static int myfs_unlink(const char *path){
 
   if (result == MYFS_FIND_FOUND) {
     remove_dir_entry(&dir_fcb, &file_fcb);
-    remove_file(&file_fcb);
+
+    if (file_fcb.nlink > 1) {
+      file_fcb.nlink--;
+      update_file(file_fcb);
+      write_log("myfs_unlink - decremented nlink\n");
+    } else {
+      remove_file(&file_fcb);
+      write_log("myfs_unlink - removed file\n");
+    }
 
     return 0;
   } else {
@@ -317,6 +325,49 @@ static int myfs_rmdir(const char *path){
   } else {
     write_log("myfs_rmdir - ENOENT\n");
     return -ENOENT;
+  }
+}
+
+static int myfs_link(const char* from, const char* to) {
+	write_log("myfs_link(from=\"%s\", to=\"%s\")", from, to);
+	int result;
+
+	struct my_fcb from_fcb;
+	result = find_file(from, &from_fcb);
+
+  if (result != MYFS_FIND_FOUND) {
+    write_log("myfs_link - ENOENT\n");
+    return -ENOENT;
+  }
+
+  if (is_directory(&from_fcb)) {
+    write_log("myfs_link - EPERM\n");
+    return -EPERM;
+  }
+
+	struct my_fcb to_fcb;
+	struct my_fcb dir_fcb;
+
+	result = find_dir_entry(to, &dir_fcb, &to_fcb);
+
+  if (result == MYFS_FIND_NO_DIR) {
+    write_log("myfs_link - ENOENT\n");
+    return -ENOENT;
+
+  } else if (result == MYFS_FIND_FOUND) {
+    write_log("myfs_link - EEXIST\n");
+    return -EEXIST;
+
+  } else {
+		char* to_path_dup = strdup(to);
+    char* file_name = path_file_name(to_path_dup);
+    add_dir_entry(&dir_fcb, &from_fcb, file_name);
+		free(to_path_dup);
+
+    from_fcb.nlink++;
+    update_file(from_fcb);
+
+    return 0;
   }
 }
 
@@ -361,6 +412,7 @@ static struct fuse_operations myfs_oper = {
   .rmdir = myfs_rmdir,
   .chmod = myfs_chmod,
   .chown = myfs_chown,
+	.link = myfs_link,
 };
 
 

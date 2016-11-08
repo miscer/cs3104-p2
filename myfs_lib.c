@@ -31,6 +31,7 @@ void create_file(mode_t mode, struct my_fcb* file_fcb) {
   file_fcb->mtime = time(0);
   file_fcb->ctime = time(0);
   file_fcb->size = 0;
+  file_fcb->nlink = 1;
 
   uuid_generate(file_fcb->id);
 
