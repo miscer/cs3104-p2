@@ -31,6 +31,7 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
   stbuf->st_uid = file_fcb.uid;
   stbuf->st_gid = file_fcb.gid;
   stbuf->st_size = file_fcb.size;
+  stbuf->st_atime = file_fcb.atime;
   stbuf->st_mtime = file_fcb.mtime;
   stbuf->st_ctime = file_fcb.ctime;
 
@@ -132,7 +133,9 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
     return -ENOENT;
   }
 
+  file_fcb.atime = ubuf->actime;
   file_fcb.mtime = ubuf->modtime;
+  
   update_file(file_fcb);
 
   return 0;

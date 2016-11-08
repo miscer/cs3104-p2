@@ -7,6 +7,7 @@ struct my_fcb {
 	uid_t  uid;   /* user */
   gid_t  gid;   /* group */
 	mode_t mode;  /* protection */
+  time_t atime; /* time of last access */
 	time_t mtime; /* time of last modification */
 	time_t ctime; /* time of last change to meta-data (status) */
   nlink_t nlink; /* number of hard links */
