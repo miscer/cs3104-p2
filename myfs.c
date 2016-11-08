@@ -263,7 +263,30 @@ static int myfs_unlink(const char *path){
 static int myfs_rmdir(const char *path){
   write_log("myfs_rmdir: %s\n",path);
 
-  return 0;
+	struct my_fcb parent_fcb;
+  struct my_fcb dir_fcb;
+
+  int result = find_dir_entry(path, &parent_fcb, &dir_fcb);
+
+  if (result == MYFS_FIND_FOUND) {
+		if (!is_directory(&dir_fcb)) {
+			write_log("myfs_rmdir - ENOTDIR\n");
+			return -ENOTDIR;
+		}
+
+		if (get_directory_size(&dir_fcb) != 0) {
+			write_log("myfs_rmdir - ENOTEMPTY\n");
+			return -ENOTEMPTY;
+		}
+		
+    remove_dir_entry(&parent_fcb, &dir_fcb);
+    remove_file(&dir_fcb);
+
+    return 0;
+  } else {
+    write_log("myfs_rmdir - ENOENT\n");
+    return -ENOENT;
+  }
 }
 
 // OPTIONAL - included as an example
@@ -303,7 +326,8 @@ static struct fuse_operations myfs_oper = {
 	.flush = myfs_flush,
 	.release = myfs_release,
 	.unlink = myfs_unlink,
-  .mkdir = myfs_mkdir,
+	.mkdir = myfs_mkdir,
+  .rmdir = myfs_rmdir,
 };
 
 
