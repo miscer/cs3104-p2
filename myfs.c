@@ -78,12 +78,16 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
     return -ENOENT;
   }
 
-  void* file_data = malloc(file_fcb.size);
-  read_file_data(file_fcb, file_data);
+  if (file_fcb.size > 0) {
+    void* file_data = malloc(file_fcb.size);
+    read_file_data(file_fcb, file_data);
 
-  memcpy(buf, file_data + offset, size);
+    memcpy(buf, file_data + offset, size);
 
-	return size;
+  	return size;
+  } else {
+    return 0;
+  }
 }
 
 // This file system only supports one file. Create should fail if a file has been created. Path must be '/<something>'.
@@ -153,9 +157,12 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   } else {
     data_size = file_fcb.size;
   }
-
+  
   void* file_data = malloc(data_size);
-  read_file_data(file_fcb, file_data);
+
+  if (file_fcb.size > 0) {
+    read_file_data(file_fcb, file_data);
+  }
 
   memcpy(file_data + offset, buf, size);
   write_file_data(&file_fcb, file_data, data_size);
@@ -278,7 +285,7 @@ static int myfs_rmdir(const char *path){
 			write_log("myfs_rmdir - ENOTEMPTY\n");
 			return -ENOTEMPTY;
 		}
-		
+
     remove_dir_entry(&parent_fcb, &dir_fcb);
     remove_file(&dir_fcb);
 
