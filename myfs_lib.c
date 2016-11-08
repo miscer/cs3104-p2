@@ -157,7 +157,7 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   free(dir_data);
 }
 
-int remove_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
   void* dir_data = malloc(dir_fcb->size);
   read_file_data(*dir_fcb, dir_data);
 
@@ -170,7 +170,9 @@ int remove_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
     dir_entry = dir_data + sizeof(struct my_dir_header) +
       n * sizeof(struct my_dir_entry);
 
-    if (uuid_compare(dir_entry->fcb_id, file_fcb->id) == 0) {
+    if (!dir_entry->used) continue;
+
+    if (strcmp(dir_entry->name, name) == 0) {
       found = 1;
       break;
     }
@@ -233,7 +235,7 @@ void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name
 }
 
 void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
-  remove_dir_entry(dir_fcb, file_fcb);
+  remove_dir_entry(dir_fcb, name);
 
   if (file_fcb->nlink > 1) {
     file_fcb->nlink--;

@@ -19,7 +19,7 @@ void remove_file(struct my_fcb*);
 void read_file_data(struct my_fcb, void*);
 void write_file_data(struct my_fcb*, void*, size_t);
 void add_dir_entry(struct my_fcb*, struct my_fcb*, const char*);
-int remove_dir_entry(struct my_fcb*, struct my_fcb*);
+int remove_dir_entry(struct my_fcb*, const char*);
 void iterate_dir_entries(struct my_fcb*, struct my_dir_iter*);
 struct my_dir_entry* next_dir_entry(struct my_dir_iter*);
 void clean_dir_iterator(struct my_dir_iter*);

@@ -312,7 +312,11 @@ static int myfs_rmdir(const char *path){
 			return -ENOTEMPTY;
 		}
 
-    remove_dir_entry(&parent_fcb, &dir_fcb);
+    char* path_dup = strdup(path);
+    char* file_name = path_file_name(path_dup);
+    remove_dir_entry(&parent_fcb, file_name);
+    free(path_dup);
+
     remove_file(&dir_fcb);
 
     return 0;

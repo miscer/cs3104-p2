@@ -23,7 +23,7 @@ int main() {
   add_dir_entry(&dir, &file1, "file1");
   add_dir_entry(&dir, &file2, "file2");
   add_dir_entry(&dir, &file3, "file3");
-  remove_dir_entry(&dir, &file2);
+  remove_dir_entry(&dir, "file2");
   add_dir_entry(&dir, &file2, "file4");
   add_dir_entry(&dir, &file4, "file5");
 
