@@ -27,6 +27,8 @@ int main() {
   add_dir_entry(&dir, &file2, "file4");
   add_dir_entry(&dir, &file4, "file5");
 
+  assert(get_directory_size(&dir) == 4);
+
   struct my_dir_iter iter;
   iterate_dir_entries(&dir, &iter);
 

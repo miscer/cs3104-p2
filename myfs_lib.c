@@ -214,6 +214,16 @@ void clean_dir_iterator(struct my_dir_iter* iter) {
   free(iter->dir_data);
 }
 
+int get_directory_size(struct my_fcb* dir_fcb) {
+  struct my_dir_header* dir_header = malloc(dir_fcb->size);
+  read_file_data(*dir_fcb, dir_header);
+
+  int size = dir_header->items;
+  free(dir_header);
+
+  return size;
+}
+
 int find_file(const char* path, struct my_fcb* file_fcb) {
   struct my_fcb dir_fcb;
   return find_dir_entry(path, &dir_fcb, file_fcb);
