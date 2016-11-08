@@ -114,7 +114,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 
 		char* path_dup = strdup(path);
     char* file_name = path_file_name(path_dup);
-    add_dir_entry(&dir_fcb, &file_fcb, file_name);
+    link_file(&dir_fcb, &file_fcb, file_name);
 		free(path_dup);
 
     return 0;
@@ -279,16 +279,10 @@ static int myfs_unlink(const char *path){
   int result = find_dir_entry(path, &dir_fcb, &file_fcb);
 
   if (result == MYFS_FIND_FOUND) {
-    remove_dir_entry(&dir_fcb, &file_fcb);
-
-    if (file_fcb.nlink > 1) {
-      file_fcb.nlink--;
-      update_file(file_fcb);
-      write_log("myfs_unlink - decremented nlink\n");
-    } else {
-      remove_file(&file_fcb);
-      write_log("myfs_unlink - removed file\n");
-    }
+		char* path_dup = strdup(path);
+		char* file_name = path_file_name(path_dup);
+    unlink_file(&dir_fcb, &file_fcb, file_name);
+		free(path_dup);
 
     return 0;
   } else {
@@ -361,11 +355,8 @@ static int myfs_link(const char* from, const char* to) {
   } else {
 		char* to_path_dup = strdup(to);
     char* file_name = path_file_name(to_path_dup);
-    add_dir_entry(&dir_fcb, &from_fcb, file_name);
+    link_file(&dir_fcb, &from_fcb, file_name);
 		free(to_path_dup);
-
-    from_fcb.nlink++;
-    update_file(from_fcb);
 
     return 0;
   }
