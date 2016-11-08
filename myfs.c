@@ -135,7 +135,7 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
 
   file_fcb.atime = ubuf->actime;
   file_fcb.mtime = ubuf->modtime;
-  
+
   update_file(file_fcb);
 
   return 0;
@@ -160,7 +160,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   } else {
     data_size = file_fcb.size;
   }
-  
+
   void* file_data = malloc(data_size);
 
   if (file_fcb.size > 0) {
@@ -205,6 +205,16 @@ static int myfs_truncate(const char *path, off_t newsize){
 // Read 'man 2 chmod'.
 static int myfs_chmod(const char *path, mode_t mode){
   write_log("myfs_chmod(fpath=\"%s\", mode=0%03o)\n", path, mode);
+
+  struct my_fcb file_fcb;
+
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+    write_log("myfs_getattr - ENOENT");
+    return -ENOENT;
+  }
+
+  file_fcb.mode = mode;
+  update_file(file_fcb);
 
   return 0;
 }
@@ -338,6 +348,7 @@ static struct fuse_operations myfs_oper = {
 	.unlink = myfs_unlink,
 	.mkdir = myfs_mkdir,
   .rmdir = myfs_rmdir,
+  .chmod = myfs_chmod,
 };
 
 
