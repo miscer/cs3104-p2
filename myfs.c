@@ -20,7 +20,7 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -46,7 +46,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
   struct my_fcb dir_fcb;
 
   if (find_file(path, &dir_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_readdir - ENOENT");
+    write_log("myfs_readdir - ENOENT\n");
     return -ENOENT;
   }
 
@@ -75,7 +75,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_read - ENOENT");
+    write_log("myfs_read - ENOENT\n");
     return -ENOENT;
   }
 
@@ -129,7 +129,7 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -149,7 +149,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -181,7 +181,7 @@ static int myfs_truncate(const char *path, off_t newsize){
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -209,7 +209,7 @@ static int myfs_chmod(const char *path, mode_t mode){
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -227,7 +227,7 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
   struct my_fcb file_fcb;
 
   if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT");
+    write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
@@ -327,7 +327,7 @@ static int myfs_rmdir(const char *path){
 }
 
 static int myfs_link(const char* from, const char* to) {
-	write_log("myfs_link(from=\"%s\", to=\"%s\")", from, to);
+	write_log("myfs_link(from=\"%s\", to=\"%s\")\n", from, to);
 	int result;
 
 	struct my_fcb from_fcb;
