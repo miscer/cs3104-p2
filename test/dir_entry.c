@@ -25,11 +25,18 @@ int main() {
   add_dir_entry(&dir, &file1, "file1");
   add_dir_entry(&dir, &file2, "file2");
   add_dir_entry(&dir, &file3, "file3");
+
+  assert(get_directory_size(&dir) == 3);
+
+  remove_dir_entry(&dir, "file1");
   remove_dir_entry(&dir, "file2");
+
+  assert(get_directory_size(&dir) == 1);
+  
   add_dir_entry(&dir, &file2, "file4");
   add_dir_entry(&dir, &file4, "file5");
 
-  assert(get_directory_size(&dir) == 4);
+  assert(get_directory_size(&dir) == 3);
 
   struct my_dir_iter iter;
   iterate_dir_entries(&dir, &iter);
@@ -38,8 +45,8 @@ int main() {
 
   entry = next_dir_entry(&iter);
   assert(entry != NULL);
-  assert(strcmp(entry->name, "file1") == 0);
-  assert(uuid_compare(entry->fcb_id, file1.id) == 0);
+  assert(strcmp(entry->name, "file5") == 0);
+  assert(uuid_compare(entry->fcb_id, file4.id) == 0);
 
   entry = next_dir_entry(&iter);
   assert(entry != NULL);
@@ -52,17 +59,12 @@ int main() {
   assert(uuid_compare(entry->fcb_id, file3.id) == 0);
 
   entry = next_dir_entry(&iter);
-  assert(entry != NULL);
-  assert(strcmp(entry->name, "file5") == 0);
-  assert(uuid_compare(entry->fcb_id, file4.id) == 0);
-
-  entry = next_dir_entry(&iter);
   assert(entry == NULL);
 
   clean_dir_iterator(&iter);
 
   remove_dir_entry(&dir, "file5");
-  assert(get_directory_size(&dir) == 3);
+  assert(get_directory_size(&dir) == 2);
 
   puts("Test passed");
 

@@ -20,7 +20,7 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
     error_handler(rc);
   }
 
-  struct my_dir_header dir_header = {0};
+  struct my_dir_header dir_header = {0, -1};
   write_file_data(dir_fcb, &dir_header, sizeof(dir_header));
 }
 
@@ -121,6 +121,10 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size) {
   }
 }
 
+static struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
+  return dir_data + sizeof(struct my_dir_header) + offset * sizeof(struct my_dir_entry);
+}
+
 void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
   size_t data_size = dir_fcb->size;
   size_t max_size = data_size + sizeof(struct my_dir_entry);
@@ -129,24 +133,17 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   read_file_data(*dir_fcb, dir_data);
 
   struct my_dir_header* dir_header = dir_data;
+  struct my_dir_entry* free_entry;
 
-  struct my_dir_entry* free_entry = NULL;
+  if (dir_header->first_free > -1) {
+    free_entry = get_dir_entry(dir_data, dir_header->first_free);
 
-  for (int n = 0; n < dir_header->items; n++) {
-    struct my_dir_entry* dir_entry = dir_data + sizeof(struct my_dir_header) +
-      n * sizeof(struct my_dir_entry);
+    dir_header->first_free = free_entry->next_free;
+  } else {
+    free_entry = get_dir_entry(dir_data, dir_header->items);
 
-    if (!dir_entry->used) {
-      free_entry = dir_entry;
-      break;
-    }
-  }
-
-  if (free_entry == NULL) {
-    data_size = max_size;
-    free_entry = dir_data + sizeof(struct my_dir_header) +
-      dir_header->items * sizeof(struct my_dir_entry);
     dir_header->items++;
+    data_size = max_size;
   }
 
   strncpy(free_entry->name, name, MY_MAX_PATH - 1);
@@ -165,10 +162,10 @@ int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
 
   struct my_dir_entry* dir_entry;
   char found = 0;
+  int offset = 0;
 
-  for (int n = 0; n < dir_header->items; n++) {
-    dir_entry = dir_data + sizeof(struct my_dir_header) +
-      n * sizeof(struct my_dir_entry);
+  for (; offset < dir_header->items; offset++) {
+    dir_entry = get_dir_entry(dir_data, offset);
 
     if (!dir_entry->used) continue;
 
@@ -180,6 +177,10 @@ int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
 
   if (found) {
     memset(dir_entry, 0, sizeof(struct my_dir_entry));
+
+    dir_entry->next_free = dir_header->first_free;
+    dir_header->first_free = offset;
+
     write_file_data(dir_fcb, dir_data, dir_fcb->size);
 
     return 0;

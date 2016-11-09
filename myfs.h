@@ -17,10 +17,12 @@ struct my_fcb {
 
 struct my_dir_header {
   int items;
+  int first_free;
 };
 
 struct my_dir_entry {
   char name[MY_MAX_PATH];
   uuid_t fcb_id;
+  int next_free;
   char used;
 };
