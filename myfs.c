@@ -434,13 +434,44 @@ static int myfs_release(const char *path, struct fuse_file_info *fi){
 static int myfs_open(const char *path, struct fuse_file_info *fi){
 	write_log("myfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
 
+  struct my_fcb file_fcb;
+
+  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+    write_log("myfs_open - ENOENT\n");
+    return -ENOENT;
+  }
+
+  if (!check_open_flags(&file_fcb, get_context_user(), fi->flags)) {
+    write_log("myfs_open - EACCES\n");
+    return -EACCES;
+  }
+
+	return 0;
+}
+
+static int myfs_opendir(const char *path, struct fuse_file_info *fi){
+	write_log("myfs_opendir(path\"%s\", fi=0x%08x)\n", path, fi);
+
+  struct my_fcb dir_fcb;
+
+  if (find_file(path, &dir_fcb) != MYFS_FIND_FOUND) {
+    write_log("myfs_opendir - ENOENT\n");
+    return -ENOENT;
+  }
+
+  if (!check_open_flags(&dir_fcb, get_context_user(), fi->flags)) {
+    write_log("myfs_opendir - EACCES\n");
+    return -EACCES;
+  }
+
 	return 0;
 }
 
 static struct fuse_operations myfs_oper = {
 	.getattr = myfs_getattr,
 	.readdir = myfs_readdir,
-	.open = myfs_open,
+  .open = myfs_open,
+	.opendir = myfs_opendir,
 	.read = myfs_read,
 	.create = myfs_create,
 	.utime = myfs_utime,

@@ -345,6 +345,17 @@ static char has_permission(struct my_fcb* fcb, struct my_user user,
   }
 }
 
+struct my_user get_context_user() {
+  struct fuse_context* context = fuse_get_context();
+
+  struct my_user user = {
+    .uid = context->uid,
+    .gid = context->gid,
+  };
+
+  return user;
+}
+
 char can_read(struct my_fcb* fcb, struct my_user user) {
   return has_permission(fcb, user, S_IRUSR, S_IRGRP, S_IROTH);
 }
@@ -355,4 +366,14 @@ char can_write(struct my_fcb* fcb, struct my_user user) {
 
 char can_execute(struct my_fcb* fcb, struct my_user user) {
   return has_permission(fcb, user, S_IXUSR, S_IXGRP, S_IXOTH);
+}
+
+char check_open_flags(struct my_fcb* fcb, struct my_user user, int flags) {
+  if (flags & O_RDWR) {
+    return can_read(fcb, user) && can_write(fcb, user);
+  } else if (flags & O_WRONLY) {
+    return can_write(fcb, user);
+  } else {
+    return can_read(fcb, user);
+  }
 }
