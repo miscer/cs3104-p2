@@ -35,6 +35,7 @@ void unlink_file(struct my_fcb*, struct my_fcb*, const char*);
 char* path_split(char**);
 char* path_file_name(char*);
 char is_directory(struct my_fcb*);
+char is_file(struct my_fcb*);
 struct my_user get_context_user();
 char can_read(struct my_fcb*, struct my_user);
 char can_write(struct my_fcb*, struct my_user);

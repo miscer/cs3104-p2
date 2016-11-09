@@ -208,7 +208,8 @@ static int myfs_truncate(const char *path, off_t newsize){
 
   if (
     result == MYFS_FIND_NO_DIR ||
-    result == MYFS_FIND_NO_FILE
+    result == MYFS_FIND_NO_FILE ||
+    !is_file(&file_fcb)
   ) {
     write_log("myfs_truncate - ENOENT\n");
     return -ENOENT;
@@ -356,6 +357,10 @@ static int myfs_unlink(const char *path){
   ) {
     write_log("myfs_unlink - EACCES\n");
     return -EACCES;
+  
+  } else if (!is_file(&file_fcb)) {
+    write_log("myfs_unlink - EPERM\n");
+    return -EPERM;
   }
 
   char* path_dup = strdup(path);
@@ -532,19 +537,23 @@ static int myfs_release(const char *path, struct fuse_file_info *fi){
 static int myfs_open(const char *path, struct fuse_file_info *fi){
   write_log("myfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
 
+  struct my_user user = get_context_user();
   struct my_fcb file_fcb;
 
-  int result = find_file(path, get_context_user(), &file_fcb);
+  int result = find_file(path, user, &file_fcb);
 
-  if (result == MYFS_FIND_NO_ACCESS) {
-    write_log("myfs_open - EACCES\n");
-    return -EACCES;
-  } else if (result != MYFS_FIND_FOUND) {
+  if (
+    result == MYFS_FIND_NO_DIR ||
+    result == MYFS_FIND_NO_FILE ||
+    !is_file(&file_fcb)
+  ) {
     write_log("myfs_open - ENOENT\n");
     return -ENOENT;
-  }
 
-  if (!check_open_flags(&file_fcb, get_context_user(), fi->flags)) {
+  } else if (
+    result == MYFS_FIND_NO_ACCESS ||
+    !check_open_flags(&file_fcb, user, fi->flags)
+  ) {
     write_log("myfs_open - EACCES\n");
     return -EACCES;
   }
@@ -555,15 +564,24 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
 static int myfs_opendir(const char *path, struct fuse_file_info *fi){
   write_log("myfs_opendir(path\"%s\", fi=0x%08x)\n", path, fi);
 
+  struct my_user user = get_context_user();
   struct my_fcb dir_fcb;
 
-  if (find_file(path, get_context_user(), &dir_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_opendir - ENOENT\n");
-    return -ENOENT;
-  }
+  int result = find_file(path, user, &dir_fcb);
 
-  if (!check_open_flags(&dir_fcb, get_context_user(), fi->flags)) {
-    write_log("myfs_opendir - EACCES\n");
+  if (
+    result == MYFS_FIND_NO_DIR ||
+    result == MYFS_FIND_NO_FILE ||
+    !is_directory(&dir_fcb)
+  ) {
+    write_log("myfs_open - ENOENT\n");
+    return -ENOENT;
+
+  } else if (
+    result == MYFS_FIND_NO_ACCESS ||
+    !check_open_flags(&dir_fcb, user, fi->flags)
+  ) {
+    write_log("myfs_open - EACCES\n");
     return -EACCES;
   }
 

@@ -346,6 +346,10 @@ char is_directory(struct my_fcb* fcb) {
   return (fcb->mode & S_IFDIR) == S_IFDIR;
 }
 
+char is_file(struct my_fcb* fcb) {
+  return (fcb->mode & S_IFREG) == S_IFREG;
+}
+
 static char has_permission(struct my_fcb* fcb, struct my_user user,
     mode_t user_mode, mode_t group_mode, mode_t other_mode) {
   if (fcb->uid == user.uid) {
