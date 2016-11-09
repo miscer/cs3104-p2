@@ -218,13 +218,19 @@ void clean_dir_iterator(struct my_dir_iter* iter) {
 }
 
 int get_directory_size(struct my_fcb* dir_fcb) {
-  struct my_dir_header* dir_header = malloc(dir_fcb->size);
-  read_file_data(*dir_fcb, dir_header);
+  struct my_dir_iter iter;
+  iterate_dir_entries(dir_fcb, &iter);
 
-  int size = dir_header->items;
-  free(dir_header);
+  int dir_size = 0;
+  struct my_dir_entry* entry;
 
-  return size;
+  while ((entry = next_dir_entry(&iter)) != NULL) {
+    if (entry->used) dir_size++;
+  }
+
+  clean_dir_iterator(&iter);
+
+  return dir_size;
 }
 
 void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {

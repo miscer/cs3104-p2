@@ -61,6 +61,9 @@ int main() {
 
   clean_dir_iterator(&iter);
 
+  remove_dir_entry(&dir, "file5");
+  assert(get_directory_size(&dir) == 3);
+
   puts("Test passed");
 
   unqlite_close(pDb);
