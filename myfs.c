@@ -110,7 +110,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     return -EEXIST;
 
   } else {
-    create_file(mode, &file_fcb);
+    create_file(mode, get_context_user(), &file_fcb);
 
 		char* path_dup = strdup(path);
     char* file_name = path_file_name(path_dup);
@@ -257,7 +257,7 @@ static int myfs_mkdir(const char *path, mode_t mode){
     return -EEXIST;
 
   } else {
-    create_directory(mode, &dir_fcb);
+    create_directory(mode, get_context_user(), &dir_fcb);
 
 		char* path_dup = strdup(path);
     char* dir_name = path_file_name(path_dup);
@@ -504,7 +504,8 @@ void init_fs(){
     printf("init_fs: creating root directory\n");
 
     struct my_fcb root_dir_fcb;
-		create_directory(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, &root_dir_fcb);
+		create_directory(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH,
+			get_context_user(), &root_dir_fcb);
 
 		printf("init_fs: writing updated root object\n");
 

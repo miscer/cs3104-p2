@@ -5,20 +5,22 @@ int main() {
   int rc = unqlite_open(&pDb, "dir_entry.db", UNQLITE_OPEN_CREATE);
 	if (rc != UNQLITE_OK) error_handler(rc);
 
+  struct my_user user = {1, 1};
+
   struct my_fcb file1;
-  create_file(0, &file1);
+  create_file(0, user, &file1);
 
   struct my_fcb file2;
-  create_file(0, &file2);
+  create_file(0, user, &file2);
 
   struct my_fcb file3;
-  create_file(0, &file3);
+  create_file(0, user, &file3);
 
   struct my_fcb file4;
-  create_file(0, &file4);
+  create_file(0, user, &file4);
 
   struct my_fcb dir;
-  create_directory(0, &dir);
+  create_directory(0, user, &dir);
 
   add_dir_entry(&dir, &file1, "file1");
   add_dir_entry(&dir, &file2, "file2");

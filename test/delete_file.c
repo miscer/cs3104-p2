@@ -5,8 +5,10 @@ int main() {
   int rc = unqlite_open(&pDb, "delete_file.db", UNQLITE_OPEN_CREATE);
 	if (rc != UNQLITE_OK) error_handler(rc);
 
+  struct my_user user = {1, 1};
+
   struct my_fcb file_fcb;
-  create_file(S_IRUSR, &file_fcb);
+  create_file(S_IRUSR, user, &file_fcb);
 
   uuid_t file_id;
   uuid_copy(file_id, file_fcb.id);

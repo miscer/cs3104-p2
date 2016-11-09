@@ -5,11 +5,15 @@ int main() {
   int rc = unqlite_open(&pDb, "create_file.db", UNQLITE_OPEN_CREATE);
 	if (rc != UNQLITE_OK) error_handler(rc);
 
-  struct my_fcb file_fcb;
-  create_file(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH, &file_fcb);
+  struct my_user user = {1, 1};
 
-  assert(file_fcb.uid == getuid());
-  assert(file_fcb.gid == getgid());
+  struct my_fcb file_fcb;
+  create_file(S_IRUSR, user, &file_fcb);
+
+  assert(!is_directory(&file_fcb));
+  assert(file_fcb.mode & S_IRUSR);
+  assert(file_fcb.uid == user.uid);
+  assert(file_fcb.gid == user.gid);
 
   struct my_fcb check_fcb;
   read_file(&(file_fcb.id), &check_fcb);

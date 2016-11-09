@@ -5,13 +5,15 @@ int main() {
   int rc = unqlite_open(&pDb, "unlink_file.db", UNQLITE_OPEN_CREATE);
 	if (rc != UNQLITE_OK) error_handler(rc);
 
+  struct my_user user = {1, 1};
+
   struct my_fcb dir_fcb;
-  create_directory(0, &dir_fcb);
+  create_directory(0, user, &dir_fcb);
 
   uuid_copy(root_object.id, dir_fcb.id);
 
   struct my_fcb file_fcb;
-  create_file(0, &file_fcb);
+  create_file(0, user, &file_fcb);
 
   uuid_t file_id;
   uuid_copy(file_id, file_fcb.id);

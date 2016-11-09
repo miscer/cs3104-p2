@@ -1,8 +1,8 @@
 #include "myfs_lib.h"
 
-void create_directory(mode_t mode, struct my_fcb *dir_fcb) {
-  dir_fcb->uid = getuid();
-  dir_fcb->gid = getgid();
+void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) {
+  dir_fcb->uid = user.uid;
+  dir_fcb->gid = user.gid;
   dir_fcb->mode = S_IFDIR|mode;
   dir_fcb->mtime = time(0);
   dir_fcb->ctime = time(0);
@@ -24,9 +24,9 @@ void create_directory(mode_t mode, struct my_fcb *dir_fcb) {
   write_file_data(dir_fcb, &dir_header, sizeof(dir_header));
 }
 
-void create_file(mode_t mode, struct my_fcb* file_fcb) {
-  file_fcb->uid = getuid();
-  file_fcb->gid = getgid();
+void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
+  file_fcb->uid = user.uid;
+  file_fcb->gid = user.gid;
   file_fcb->mode = S_IFREG|mode;
   file_fcb->mtime = time(0);
   file_fcb->ctime = time(0);
