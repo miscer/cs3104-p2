@@ -114,7 +114,10 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     write_log("myfs_create - EEXIST\n");
     return -EEXIST;
 
-	} else if (result == MYFS_FIND_NO_ACCESS) {
+	} else if (
+		result == MYFS_FIND_NO_ACCESS ||
+		!can_write(&dir_fcb, get_context_user())
+	) {
 		write_log("myfs_create - EACCES\n");
 		return -EACCES;
 
@@ -137,9 +140,21 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT\n");
+  int result = find_file(path, get_context_user(), &file_fcb);
+
+  if (
+    result == MYFS_FIND_NO_DIR ||
+    result == MYFS_FIND_NO_FILE
+  ) {
+    write_log("myfs_utime - ENOENT\n");
     return -ENOENT;
+
+  } else if (
+    result == MYFS_FIND_NO_ACCESS ||
+    !can_write(&file_fcb, get_context_user())
+  ) {
+    write_log("myfs_utime - EACCES\n");
+    return -EACCES;
   }
 
   file_fcb.atime = ubuf->actime;
@@ -189,9 +204,22 @@ static int myfs_truncate(const char *path, off_t newsize){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT\n");
+	int result = find_file(path, get_context_user(), &file_fcb);
+
+	if (
+		result == MYFS_FIND_NO_DIR ||
+		result == MYFS_FIND_NO_FILE
+	) {
+		write_log("myfs_truncate - ENOENT\n");
     return -ENOENT;
+	}
+
+  else if (
+		result == MYFS_FIND_NO_ACCESS ||
+		!can_write(&file_fcb, get_context_user())
+	) {
+		write_log("myfs_getattr - EACCES\n");
+    return -EACCES;
   }
 
   void* old_file_data = malloc(file_fcb.size);
@@ -215,12 +243,26 @@ static int myfs_truncate(const char *path, off_t newsize){
 static int myfs_chmod(const char *path, mode_t mode){
   write_log("myfs_chmod(fpath=\"%s\", mode=0%03o)\n", path, mode);
 
-  struct my_fcb file_fcb;
+	struct my_user user = get_context_user();
 
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT\n");
+  struct my_fcb file_fcb;
+	int result = find_file(path, user, &file_fcb);
+
+	if (
+		result == MYFS_FIND_NO_DIR ||
+		result == MYFS_FIND_NO_FILE
+	) {
+		write_log("myfs_chmod - ENOENT\n");
     return -ENOENT;
-  }
+
+  } else if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_getattr - EACCES\n");
+		return -EACCES;
+
+	} else if (file_fcb.uid != user.uid) {
+		write_log("myfs_getattr - EPERM\n");
+		return -EPERM;
+	}
 
   file_fcb.mode = mode;
   update_file(file_fcb);
@@ -233,12 +275,22 @@ static int myfs_chmod(const char *path, mode_t mode){
 static int myfs_chown(const char *path, uid_t uid, gid_t gid){
   write_log("myfs_chown(path=\"%s\", uid=%d, gid=%d)\n", path, uid, gid);
 
-  struct my_fcb file_fcb;
+	struct my_user user = get_context_user();
 
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT\n");
+  struct my_fcb file_fcb;
+	int result = find_file(path, user, &file_fcb);
+
+	if (
+		result == MYFS_FIND_NO_DIR ||
+		result == MYFS_FIND_NO_FILE
+	) {
+		write_log("myfs_chmod - ENOENT\n");
     return -ENOENT;
-  }
+
+  } else if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_getattr - EACCES\n");
+		return -EACCES;
+	}
 
   file_fcb.uid = uid;
   file_fcb.gid = gid;
@@ -291,17 +343,27 @@ static int myfs_unlink(const char *path){
 
   int result = find_dir_entry(path, get_context_user(), &dir_fcb, &file_fcb);
 
-  if (result == MYFS_FIND_FOUND) {
-		char* path_dup = strdup(path);
-		char* file_name = path_file_name(path_dup);
-    unlink_file(&dir_fcb, &file_fcb, file_name);
-		free(path_dup);
-
-    return 0;
-  } else {
-    write_log("myfs_unlink - ENOENT\n");
+	if (
+		result == MYFS_FIND_NO_DIR ||
+		result == MYFS_FIND_NO_FILE
+	) {
+		write_log("myfs_unlink - ENOENT\n");
     return -ENOENT;
-  }
+
+	} else if (
+		result == MYFS_FIND_NO_ACCESS ||
+		!can_write(&dir_fcb, get_context_user())
+	) {
+		write_log("myfs_unlink - EACCES\n");
+    return -EACCES;
+	}
+
+	char* path_dup = strdup(path);
+	char* file_name = path_file_name(path_dup);
+  unlink_file(&dir_fcb, &file_fcb, file_name);
+	free(path_dup);
+
+  return 0;
 }
 
 // Delete a directory.
@@ -314,29 +376,37 @@ static int myfs_rmdir(const char *path){
 
   int result = find_dir_entry(path, get_context_user(), &parent_fcb, &dir_fcb);
 
-  if (result == MYFS_FIND_FOUND) {
-		if (!is_directory(&dir_fcb)) {
-			write_log("myfs_rmdir - ENOTDIR\n");
-			return -ENOTDIR;
-		}
-
-		if (get_directory_size(&dir_fcb) != 0) {
-			write_log("myfs_rmdir - ENOTEMPTY\n");
-			return -ENOTEMPTY;
-		}
-
-    char* path_dup = strdup(path);
-    char* file_name = path_file_name(path_dup);
-    remove_dir_entry(&parent_fcb, file_name);
-    free(path_dup);
-
-    remove_file(&dir_fcb);
-
-    return 0;
-  } else {
-    write_log("myfs_rmdir - ENOENT\n");
+	if (
+		result == MYFS_FIND_NO_DIR ||
+		result == MYFS_FIND_NO_FILE
+	) {
+		write_log("myfs_rmdir - ENOENT\n");
     return -ENOENT;
-  }
+
+	} else if (
+		result == MYFS_FIND_NO_ACCESS ||
+		!can_write(&parent_fcb, get_context_user())
+	) {
+		write_log("myfs_rmdir - EACCES\n");
+    return -EACCES;
+
+	} else if (!is_directory(&dir_fcb)) {
+		write_log("myfs_rmdir - ENOTDIR\n");
+		return -ENOTDIR;
+
+	} else if (get_directory_size(&dir_fcb) != 0) {
+		write_log("myfs_rmdir - ENOTEMPTY\n");
+		return -ENOTEMPTY;
+	}
+
+  char* path_dup = strdup(path);
+  char* file_name = path_file_name(path_dup);
+  remove_dir_entry(&parent_fcb, file_name);
+  free(path_dup);
+
+  remove_file(&dir_fcb);
+
+  return 0;
 }
 
 static int myfs_link(const char* from, const char* to) {
@@ -349,12 +419,12 @@ static int myfs_link(const char* from, const char* to) {
 	if (result == MYFS_FIND_NO_ACCESS) {
 		write_log("myfs_link - EACCES\n");
     return -EACCES;
+
 	} else if (result != MYFS_FIND_FOUND) {
     write_log("myfs_link - ENOENT\n");
     return -ENOENT;
-  }
 
-  if (is_directory(&from_fcb)) {
+  } else if (is_directory(&from_fcb)) {
     write_log("myfs_link - EPERM\n");
     return -EPERM;
   }
@@ -536,9 +606,11 @@ void init_fs(){
 
     printf("init_fs: creating root directory\n");
 
+    struct my_user user = {.uid = getuid(), .gid = getgid()};
+
     struct my_fcb root_dir_fcb;
 		create_directory(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH,
-			get_context_user(), &root_dir_fcb);
+			user, &root_dir_fcb);
 
 		printf("init_fs: writing updated root object\n");
 
