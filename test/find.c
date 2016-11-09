@@ -8,7 +8,7 @@ int main() {
   struct my_user user = {1, 1};
 
   struct my_fcb root_dir;
-  create_directory(0, user, &root_dir);
+  create_directory(S_IXUSR, user, &root_dir);
 
   uuid_copy(root_object.id, root_dir.id);
 
@@ -22,7 +22,7 @@ int main() {
   create_file(0, user, &file3);
 
   struct my_fcb dir1;
-  create_directory(0, user, &dir1);
+  create_directory(S_IXUSR, user, &dir1);
 
   add_dir_entry(&root_dir, &file1, "file1");
   add_dir_entry(&root_dir, &file2, "file2");
@@ -31,16 +31,22 @@ int main() {
 
   struct my_fcb found_file;
 
-  find_file("/file1", &found_file);
+  find_file("/file1", user, &found_file);
   assert(uuid_compare(found_file.id, file1.id) == 0);
 
-  find_file("/dir1/file3", &found_file);
+  find_file("/dir1/file3", user, &found_file);
   assert(uuid_compare(found_file.id, file3.id) == 0);
 
-  assert(find_file("/foo", &found_file) == MYFS_FIND_NO_FILE);
-  assert(find_file("/foo/bar", &found_file) == MYFS_FIND_NO_DIR);
-  assert(find_file("/dir1/foo", &found_file) == MYFS_FIND_NO_FILE);
-  assert(find_file("/file1/foo", &found_file) == MYFS_FIND_NO_DIR);
+  assert(find_file("/foo", user, &found_file) == MYFS_FIND_NO_FILE);
+  assert(find_file("/foo/bar", user, &found_file) == MYFS_FIND_NO_DIR);
+  assert(find_file("/dir1/foo", user, &found_file) == MYFS_FIND_NO_FILE);
+  assert(find_file("/file1/foo", user, &found_file) == MYFS_FIND_NO_DIR);
+
+  dir1.mode &= ~S_IXUSR;
+  update_file(dir1);
+
+  assert(find_file("/dir1/file3", user, &found_file) == MYFS_FIND_NO_ACCESS);
+  assert(find_file("/dir1/foo", user, &found_file) == MYFS_FIND_NO_ACCESS);
 
   puts("Test passed");
 

@@ -19,7 +19,12 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+	int result = find_file(path, get_context_user(), &file_fcb);
+
+  if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_getattr - EACCES\n");
+    return -EACCES;
+	} else if (result != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -45,7 +50,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
 
   struct my_fcb dir_fcb;
 
-  if (find_file(path, &dir_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &dir_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_readdir - ENOENT\n");
     return -ENOENT;
   }
@@ -74,7 +79,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_read - ENOENT\n");
     return -ENOENT;
   }
@@ -99,7 +104,7 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
   struct my_fcb dir_fcb;
   struct my_fcb file_fcb;
 
-  int result = find_dir_entry(path, &dir_fcb, &file_fcb);
+  int result = find_dir_entry(path, get_context_user(), &dir_fcb, &file_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
     write_log("myfs_create - ENOENT\n");
@@ -108,6 +113,10 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
   } else if (result == MYFS_FIND_FOUND) {
     write_log("myfs_create - EEXIST\n");
     return -EEXIST;
+
+	} else if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_create - EACCES\n");
+		return -EACCES;
 
   } else {
     create_file(mode, get_context_user(), &file_fcb);
@@ -128,7 +137,7 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -148,7 +157,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -180,7 +189,7 @@ static int myfs_truncate(const char *path, off_t newsize){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -208,7 +217,7 @@ static int myfs_chmod(const char *path, mode_t mode){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -226,7 +235,7 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
@@ -246,7 +255,7 @@ static int myfs_mkdir(const char *path, mode_t mode){
 	struct my_fcb parent_fcb;
   struct my_fcb dir_fcb;
 
-  int result = find_dir_entry(path, &parent_fcb, &dir_fcb);
+  int result = find_dir_entry(path, get_context_user(), &parent_fcb, &dir_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
     write_log("myfs_mkdir - ENOENT\n");
@@ -255,6 +264,10 @@ static int myfs_mkdir(const char *path, mode_t mode){
   } else if (result == MYFS_FIND_FOUND) {
     write_log("myfs_mkdir - EEXIST\n");
     return -EEXIST;
+
+	} else if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_mkdir - EACCES\n");
+    return -EACCES;
 
   } else {
     create_directory(mode, get_context_user(), &dir_fcb);
@@ -276,7 +289,7 @@ static int myfs_unlink(const char *path){
   struct my_fcb dir_fcb;
   struct my_fcb file_fcb;
 
-  int result = find_dir_entry(path, &dir_fcb, &file_fcb);
+  int result = find_dir_entry(path, get_context_user(), &dir_fcb, &file_fcb);
 
   if (result == MYFS_FIND_FOUND) {
 		char* path_dup = strdup(path);
@@ -299,7 +312,7 @@ static int myfs_rmdir(const char *path){
 	struct my_fcb parent_fcb;
   struct my_fcb dir_fcb;
 
-  int result = find_dir_entry(path, &parent_fcb, &dir_fcb);
+  int result = find_dir_entry(path, get_context_user(), &parent_fcb, &dir_fcb);
 
   if (result == MYFS_FIND_FOUND) {
 		if (!is_directory(&dir_fcb)) {
@@ -331,9 +344,12 @@ static int myfs_link(const char* from, const char* to) {
 	int result;
 
 	struct my_fcb from_fcb;
-	result = find_file(from, &from_fcb);
+	result = find_file(from, get_context_user(), &from_fcb);
 
-  if (result != MYFS_FIND_FOUND) {
+	if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_link - EACCES\n");
+    return -EACCES;
+	} else if (result != MYFS_FIND_FOUND) {
     write_log("myfs_link - ENOENT\n");
     return -ENOENT;
   }
@@ -346,11 +362,15 @@ static int myfs_link(const char* from, const char* to) {
 	struct my_fcb to_fcb;
 	struct my_fcb dir_fcb;
 
-	result = find_dir_entry(to, &dir_fcb, &to_fcb);
+	result = find_dir_entry(to, get_context_user(), &dir_fcb, &to_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
     write_log("myfs_link - ENOENT\n");
     return -ENOENT;
+
+	} else if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_link - EACCES\n");
+    return -EACCES;
 
   } else if (result == MYFS_FIND_FOUND) {
     write_log("myfs_link - EEXIST\n");
@@ -372,21 +392,29 @@ static int myfs_rename(const char* from, const char* to) {
 
   struct my_fcb from_dir;
   struct my_fcb from_file;
-  result = find_dir_entry(from, &from_dir, &from_file);
+  result = find_dir_entry(from, get_context_user(), &from_dir, &from_file);
 
-  if (result != MYFS_FIND_FOUND) {
+	if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_rename - EACCES\n");
+    return -EACCES;
+	} else if (result != MYFS_FIND_FOUND) {
     write_log("myfs_rename - ENOENT\n");
     return -ENOENT;
   }
 
   struct my_fcb to_dir;
   struct my_fcb to_file;
-  result = find_dir_entry(to, &to_dir, &to_file);
+  result = find_dir_entry(to, get_context_user(), &to_dir, &to_file);
 
   if (result == MYFS_FIND_NO_DIR) {
     write_log("myfs_rename - ENOENT\n");
     return -ENOENT;
   }
+
+	if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_rename - EACCES\n");
+    return -EACCES;
+	}
 
   char* to_dup = strdup(to);
   char* to_file_name = path_file_name(to_dup);
@@ -436,7 +464,12 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
 
   struct my_fcb file_fcb;
 
-  if (find_file(path, &file_fcb) != MYFS_FIND_FOUND) {
+	int result = find_file(path, get_context_user(), &file_fcb);
+
+	if (result == MYFS_FIND_NO_ACCESS) {
+		write_log("myfs_open - EACCES\n");
+    return -EACCES;
+	} else if (result != MYFS_FIND_FOUND) {
     write_log("myfs_open - ENOENT\n");
     return -ENOENT;
   }
@@ -454,7 +487,7 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
 
   struct my_fcb dir_fcb;
 
-  if (find_file(path, &dir_fcb) != MYFS_FIND_FOUND) {
+  if (find_file(path, get_context_user(), &dir_fcb) != MYFS_FIND_FOUND) {
     write_log("myfs_opendir - ENOENT\n");
     return -ENOENT;
   }
@@ -504,7 +537,7 @@ void init_fs(){
     printf("init_fs: creating root directory\n");
 
     struct my_fcb root_dir_fcb;
-		create_directory(S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH,
+		create_directory(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH,
 			get_context_user(), &root_dir_fcb);
 
 		printf("init_fs: writing updated root object\n");

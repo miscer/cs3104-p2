@@ -3,6 +3,7 @@
 #define MYFS_FIND_FOUND 0
 #define MYFS_FIND_NO_DIR -1
 #define MYFS_FIND_NO_FILE -2
+#define MYFS_FIND_NO_ACCESS -3
 
 struct my_dir_iter {
   int position;
@@ -17,8 +18,8 @@ struct my_user {
 void create_file(mode_t, struct my_user, struct my_fcb*);
 void create_directory(mode_t, struct my_user, struct my_fcb*);
 int read_file(uuid_t*, struct my_fcb*);
-int find_file(const char*, struct my_fcb*);
-int find_dir_entry(const char*, struct my_fcb*, struct my_fcb*);
+int find_file(const char*, struct my_user, struct my_fcb*);
+int find_dir_entry(const char*, struct my_user, struct my_fcb*, struct my_fcb*);
 void update_file(struct my_fcb);
 void remove_file(struct my_fcb*);
 void read_file_data(struct my_fcb, void*);

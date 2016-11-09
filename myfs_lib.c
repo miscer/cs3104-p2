@@ -246,12 +246,12 @@ void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* na
   }
 }
 
-int find_file(const char* path, struct my_fcb* file_fcb) {
+int find_file(const char* path, struct my_user user, struct my_fcb* file_fcb) {
   struct my_fcb dir_fcb;
-  return find_dir_entry(path, &dir_fcb, file_fcb);
+  return find_dir_entry(path, user, &dir_fcb, file_fcb);
 }
 
-int find_dir_entry(const char* const_path, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+int find_dir_entry(const char* const_path, struct my_user user, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
   struct my_fcb root_dir;
   read_file(&(root_object.id), &root_dir);
 
@@ -266,6 +266,11 @@ int find_dir_entry(const char* const_path, struct my_fcb* dir_fcb, struct my_fcb
     if (!is_directory(file_fcb)) {
       free(full_path);
       return MYFS_FIND_NO_DIR;
+    }
+
+    if (!can_execute(file_fcb, user)) {
+      free(full_path);
+      return MYFS_FIND_NO_ACCESS;
     }
 
     memcpy(dir_fcb, file_fcb, sizeof(struct my_fcb));

@@ -26,15 +26,15 @@ int main() {
   unlink_file(&dir_fcb, &file_fcb, "file3");
 
   struct my_fcb check_fcb;
-  assert(find_file("/file1", &check_fcb) == MYFS_FIND_FOUND);
-  assert(find_file("/file2", &check_fcb) == MYFS_FIND_NO_FILE);
-  assert(find_file("/file3", &check_fcb) == MYFS_FIND_NO_FILE);
+  assert(find_file("/file1", user, &check_fcb) == MYFS_FIND_FOUND);
+  assert(find_file("/file2", user, &check_fcb) == MYFS_FIND_NO_FILE);
+  assert(find_file("/file3", user, &check_fcb) == MYFS_FIND_NO_FILE);
 
   rc = read_file(&file_id, &check_fcb);
   assert(rc == 0);
 
   unlink_file(&dir_fcb, &file_fcb, "file1");
-  assert(find_file("/file1", &check_fcb) == MYFS_FIND_NO_FILE);
+  assert(find_file("/file1", user, &check_fcb) == MYFS_FIND_NO_FILE);
 
   rc = read_file(&file_id, &check_fcb);
   assert(rc < 0);
