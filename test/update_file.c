@@ -3,7 +3,7 @@
 
 int main() {
   int rc = unqlite_open(&pDb, "update_file.db", UNQLITE_OPEN_CREATE);
-	if (rc != UNQLITE_OK) error_handler(rc);
+  if (rc != UNQLITE_OK) error_handler(rc);
 
   struct my_user user = {1, 1};
 

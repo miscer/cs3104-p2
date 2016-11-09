@@ -4,15 +4,15 @@
 
 struct my_fcb {
   uuid_t id;    /* file ID */
-	uid_t  uid;   /* user */
+  uid_t  uid;   /* user */
   gid_t  gid;   /* group */
-	mode_t mode;  /* protection */
+  mode_t mode;  /* protection */
   time_t atime; /* time of last access */
-	time_t mtime; /* time of last modification */
-	time_t ctime; /* time of last change to meta-data (status) */
+  time_t mtime; /* time of last modification */
+  time_t ctime; /* time of last change to meta-data (status) */
   nlink_t nlink; /* number of hard links */
-	off_t size;   /* size */
-	uuid_t data;  /* data */
+  off_t size;   /* size */
+  uuid_t data;  /* data */
 };
 
 struct my_dir_header {
