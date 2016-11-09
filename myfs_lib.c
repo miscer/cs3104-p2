@@ -333,3 +333,26 @@ char* path_file_name(char* path) {
 char is_directory(struct my_fcb* fcb) {
   return (fcb->mode & S_IFDIR) == S_IFDIR;
 }
+
+static char has_permission(struct my_fcb* fcb, struct my_user user,
+    mode_t user_mode, mode_t group_mode, mode_t other_mode) {
+  if (fcb->uid == user.uid) {
+    return (fcb->mode & user_mode) == user_mode;
+  } else if (fcb->gid == user.gid) {
+    return (fcb->mode & group_mode) == group_mode;
+  } else {
+    return (fcb->mode & other_mode) == other_mode;
+  }
+}
+
+char can_read(struct my_fcb* fcb, struct my_user user) {
+  return has_permission(fcb, user, S_IRUSR, S_IRGRP, S_IROTH);
+}
+
+char can_write(struct my_fcb* fcb, struct my_user user) {
+  return has_permission(fcb, user, S_IWUSR, S_IWGRP, S_IWOTH);
+}
+
+char can_execute(struct my_fcb* fcb, struct my_user user) {
+  return has_permission(fcb, user, S_IXUSR, S_IXGRP, S_IXOTH);
+}

@@ -9,6 +9,11 @@ struct my_dir_iter {
   void* dir_data;
 };
 
+struct my_user {
+  uid_t  uid;
+  gid_t  gid;
+};
+
 void create_file(mode_t, struct my_fcb*);
 void create_directory(mode_t, struct my_fcb*);
 int read_file(uuid_t*, struct my_fcb*);
@@ -29,3 +34,6 @@ void unlink_file(struct my_fcb*, struct my_fcb*, const char*);
 char* path_split(char**);
 char* path_file_name(char*);
 char is_directory(struct my_fcb*);
+char can_read(struct my_fcb*, struct my_user);
+char can_write(struct my_fcb*, struct my_user);
+char can_execute(struct my_fcb*, struct my_user);
