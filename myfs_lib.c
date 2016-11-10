@@ -90,6 +90,25 @@ void remove_file(struct my_fcb* file_fcb) {
   unqlite_kv_delete(pDb, &(file_fcb->data), KEY_SIZE);
 }
 
+void truncate_file(struct my_fcb* file_fcb, size_t size) {
+  void* old_file_data = malloc(file_fcb->size);
+  void* new_file_data = calloc(1, size);
+
+  unqlite_int64 object_size = file_fcb->size;
+  unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, old_file_data, &object_size);
+
+  if (file_fcb->size > size) {
+    memcpy(new_file_data, old_file_data, size);
+  } else {
+    memcpy(new_file_data, old_file_data, file_fcb->size);
+  }
+
+  unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, new_file_data, size);
+
+  file_fcb->size = size;
+  update_file(*file_fcb);
+}
+
 void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t offset) {
   puts("Reading file data...");
   print_id(&(file_fcb.id));

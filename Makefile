@@ -9,7 +9,7 @@ all: $(TARGET)
 
 tests: test/create_dir test/create_file test/update_file test/file_data \
 	test/dir_entry test/find test/delete_file test/path test/links \
-	test/permissions
+	test/permissions test/truncate
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

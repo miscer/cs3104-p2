@@ -204,18 +204,7 @@ static int myfs_truncate(const char *path, off_t newsize){
     return -EACCES;
   }
 
-  void* old_file_data = malloc(file_fcb.size);
-  void* new_file_data = calloc(1, newsize);
-
-  read_file_data(file_fcb, old_file_data, file_fcb.size, 0);
-
-  if (file_fcb.size > newsize) {
-    memcpy(new_file_data, old_file_data, newsize);
-  } else {
-    memcpy(new_file_data, old_file_data, file_fcb.size);
-  }
-
-  write_file_data(&file_fcb, new_file_data, newsize, 0);
+  truncate_file(&file_fcb, newsize);
 
   return 0;
 }
