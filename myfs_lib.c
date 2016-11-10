@@ -21,7 +21,7 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   }
 
   struct my_dir_header dir_header = {0, -1};
-  write_file_data(dir_fcb, &dir_header, sizeof(dir_header));
+  write_file_data(dir_fcb, &dir_header, sizeof(dir_header), 0);
 }
 
 void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
@@ -90,35 +90,71 @@ void remove_file(struct my_fcb* file_fcb) {
   unqlite_kv_delete(pDb, &(file_fcb->data), KEY_SIZE);
 }
 
-void read_file_data(struct my_fcb file_fcb, void* buffer) {
+void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t offset) {
   puts("Reading file data...");
   print_id(&(file_fcb.id));
   puts("\n");
 
-  unqlite_int64 size = file_fcb.size;
-  int rc = unqlite_kv_fetch(pDb, &(file_fcb.data), KEY_SIZE, buffer, &size);
+  void* file_data = malloc(file_fcb.size);
+
+  unqlite_int64 object_size = file_fcb.size;
+  int rc = unqlite_kv_fetch(pDb, &(file_fcb.data), KEY_SIZE, file_data, &object_size);
+
+  if (rc == UNQLITE_OK) {
+    memcpy(buffer, file_data + offset, size);
+  }
 
   if (rc == UNQLITE_NOTFOUND) {
     puts("File data not found");
   } else if (rc != UNQLITE_OK) {
     error_handler(rc);
   }
+
+  free(file_data);
 }
 
-void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size) {
+void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t offset) {
   puts("Writing file data...");
   print_id(&(file_fcb->id));
   puts("\n");
 
-  file_fcb->size = size;
-  uuid_generate(file_fcb->data);
-  update_file(*file_fcb);
+  int rc;
 
-  int rc = unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, buffer, file_fcb->size);
+  size_t data_size;
 
-  if (rc != UNQLITE_OK) {
+  if ((offset + size) > file_fcb->size) {
+    data_size = offset + size;
+  } else {
+    data_size = file_fcb->size;
+  }
+
+  void* file_data = calloc(1, data_size);
+
+  if (file_fcb->size > 0) {
+    unqlite_int64 object_size = file_fcb->size;
+    rc = unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, file_data, &object_size);
+  } else {
+    uuid_generate(file_fcb->data);
+    rc = UNQLITE_OK;
+  }
+
+  if (rc == UNQLITE_OK) {
+    memcpy(file_data + offset, buffer, size);
+    rc = unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, file_data, data_size);
+  }
+
+  if (rc == UNQLITE_OK) {
+    file_fcb->size = data_size;
+    update_file(*file_fcb);
+  }
+
+  if (rc == UNQLITE_NOTFOUND) {
+    puts("File data not found");
+  } else if (rc != UNQLITE_OK) {
     error_handler(rc);
   }
+
+  free(file_data);
 }
 
 static struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
@@ -130,7 +166,7 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   size_t max_size = data_size + sizeof(struct my_dir_entry);
 
   void* dir_data = malloc(max_size);
-  read_file_data(*dir_fcb, dir_data);
+  read_file_data(*dir_fcb, dir_data, data_size, 0);
 
   struct my_dir_header* dir_header = dir_data;
   struct my_dir_entry* free_entry;
@@ -150,13 +186,13 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   uuid_copy(free_entry->fcb_id, file_fcb->id);
   free_entry->used = 1;
 
-  write_file_data(dir_fcb, dir_data, data_size);
+  write_file_data(dir_fcb, dir_data, data_size, 0);
   free(dir_data);
 }
 
 int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
   void* dir_data = malloc(dir_fcb->size);
-  read_file_data(*dir_fcb, dir_data);
+  read_file_data(*dir_fcb, dir_data, dir_fcb->size, 0);
 
   struct my_dir_header* dir_header = dir_data;
 
@@ -181,7 +217,7 @@ int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
     dir_entry->next_free = dir_header->first_free;
     dir_header->first_free = offset;
 
-    write_file_data(dir_fcb, dir_data, dir_fcb->size);
+    write_file_data(dir_fcb, dir_data, dir_fcb->size, 0);
 
     return 0;
   } else {
@@ -193,7 +229,7 @@ void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
   iter->position = 0;
   iter->dir_data = malloc(dir_fcb->size);
 
-  read_file_data(*dir_fcb, iter->dir_data);
+  read_file_data(*dir_fcb, iter->dir_data, dir_fcb->size, 0);
 }
 
 struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {

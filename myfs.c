@@ -85,11 +85,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
   }
 
   if (file_fcb.size > 0) {
-    void* file_data = malloc(file_fcb.size);
-    read_file_data(file_fcb, file_data);
-
-    memcpy(buf, file_data + offset, size);
-
+    read_file_data(file_fcb, buf, size, offset);
     return size;
   } else {
     return 0;
@@ -177,22 +173,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
     return -ENOENT;
   }
 
-  size_t data_size;
-
-  if ((offset + size) > file_fcb.size) {
-    data_size = offset + size;
-  } else {
-    data_size = file_fcb.size;
-  }
-
-  void* file_data = malloc(data_size);
-
-  if (file_fcb.size > 0) {
-    read_file_data(file_fcb, file_data);
-  }
-
-  memcpy(file_data + offset, buf, size);
-  write_file_data(&file_fcb, file_data, data_size);
+  write_file_data(&file_fcb, (char*)buf, size, offset);
 
   return size;
 }
@@ -224,9 +205,9 @@ static int myfs_truncate(const char *path, off_t newsize){
   }
 
   void* old_file_data = malloc(file_fcb.size);
-  void* new_file_data = malloc(newsize);
+  void* new_file_data = calloc(1, newsize);
 
-  memset(new_file_data, 0, newsize);
+  read_file_data(file_fcb, old_file_data, file_fcb.size, 0);
 
   if (file_fcb.size > newsize) {
     memcpy(new_file_data, old_file_data, newsize);
@@ -234,7 +215,7 @@ static int myfs_truncate(const char *path, off_t newsize){
     memcpy(new_file_data, old_file_data, file_fcb.size);
   }
 
-  write_file_data(&file_fcb, new_file_data, newsize);
+  write_file_data(&file_fcb, new_file_data, newsize, 0);
 
   return 0;
 }
@@ -357,7 +338,7 @@ static int myfs_unlink(const char *path){
   ) {
     write_log("myfs_unlink - EACCES\n");
     return -EACCES;
-  
+
   } else if (!is_file(&file_fcb)) {
     write_log("myfs_unlink - EPERM\n");
     return -EPERM;
