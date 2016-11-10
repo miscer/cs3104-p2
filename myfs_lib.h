@@ -5,20 +5,74 @@
 #define MYFS_FIND_NO_FILE -2
 #define MYFS_FIND_NO_ACCESS -3
 
+/** @brief Struct used when iterating directories to hold iterator state */
 struct my_dir_iter {
-  int position;
-  void* dir_data;
+  int position; /**< Offset of the current entry */
+  void* dir_data; /**< Pointer to raw directory data */
 };
 
+/** @brief Helper struct for storing user and group IDs for various functions */
 struct my_user {
-  uid_t  uid;
-  gid_t  gid;
+  uid_t  uid; /**< User ID */
+  gid_t  gid; /**< Group ID */
 };
 
+/**
+ * @brief Creates a new file and stores it in the database
+ * @param mode File mode
+ * @param user User and group IDs
+ * @param file Pointer to a FCB where the created file will be stored
+ */
 void create_file(mode_t, struct my_user, struct my_fcb*);
+
+/**
+ * @brief Creates a new directory and stores it in the database
+ * @param mode Directory mode
+ * @param user User and group IDs
+ * @param directory Pointer to a FCB where the created directory will be stored
+ */
 void create_directory(mode_t, struct my_user, struct my_fcb*);
+
+/**
+ * @brief Reads file FCB from the database into memory
+ * @param id Database key
+ * @param file Pointer to a FCB where the loaded file will be stored
+ * @return 0 on success, -1 if not found, -2 on other error
+ */
 int read_file(uuid_t*, struct my_fcb*);
+
+/**
+ * @brief Finds a file by its path name in the directory tree
+ *
+ * Behaves the same way as find_dir_entry, but throws away the parent directory
+ *
+ * @param path Path to the file
+ * @param user User and group IDs to check against when traversing the tree
+ * @param file Pointer to a FCB where the found file will be stored
+ * @return Same as find_dir_entry
+ */
 int find_file(const char*, struct my_user, struct my_fcb*);
+
+/**
+ * @brief Finds a file and its parent directory by its path name in the directory tree
+ *
+ * Traverses the directory tree to find the specified file. During traversal the
+ * directory execute permission is checked and traversal can be stopped by
+ * insufficient permissions. In this case MYFS_FIND_NO_ACCESS is returned.
+ *
+ * If a directory in the path (not the file) does not exist, MYFS_FIND_NO_DIR
+ * is returned. If the file does not exist, MYFS_FIND_NO_FILE is returned.
+ *
+ * If all goes well, MYFS_FIND_FOUND is returned and the directory and file
+ * is stored in dir and file. Parent directory is stored even if the file is not
+ * found.
+ *
+ * @param path Path to the file
+ * @param user User and group IDs to check against when traversing the tree
+ * @param dir Pointer to a FCB where the parent directory will be stored
+ * @param file Pointer to a FCB where the found file will be stored
+ * @return Result of the traversal algorithm
+ */
 int find_dir_entry(const char*, struct my_user, struct my_fcb*, struct my_fcb*);
 void update_file(struct my_fcb);
 void remove_file(struct my_fcb*);
