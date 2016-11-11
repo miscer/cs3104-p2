@@ -14,7 +14,11 @@ struct my_fcb {
   time_t ctime; /* time of last change to meta-data (status) */
   nlink_t nlink; /* number of hard links */
   off_t size;   /* size */
-  uuid_t data[MY_MAX_BLOCKS];  /* data */
+  uuid_t data;  /* data */
+};
+
+struct my_index {
+  uuid_t entries[MY_MAX_BLOCKS];
 };
 
 struct my_dir_header {
