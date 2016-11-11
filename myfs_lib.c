@@ -79,6 +79,30 @@ void update_file(struct my_fcb file_fcb) {
   }
 }
 
+static size_t size_round_up_to(size_t num, size_t up_to) {
+  size_t rem = num % up_to;
+
+  if (rem > 0) {
+    return num + up_to - rem;
+  } else {
+    return num;
+  }
+}
+
+static size_t size_round_down_to(size_t num, size_t up_to) {
+  size_t rem = num % up_to;
+  return num - rem;
+}
+
+static size_t get_num_blocks(size_t size) {
+  return size_round_up_to(size, MY_BLOCK_SIZE) / MY_BLOCK_SIZE;
+}
+
+static void get_block_indexes(size_t size, off_t offset, int* first, int* last) {
+  *first = size_round_down_to(offset, MY_BLOCK_SIZE) / MY_BLOCK_SIZE;
+  *last = size_round_up_to(offset + size, MY_BLOCK_SIZE) / MY_BLOCK_SIZE - 1;
+}
+
 void remove_file(struct my_fcb* file_fcb) {
   puts("Removing file...");
   print_id(&(file_fcb->id));
@@ -87,23 +111,36 @@ void remove_file(struct my_fcb* file_fcb) {
   int rc = unqlite_kv_delete(pDb, &(file_fcb->id), KEY_SIZE);
   if (rc != UNQLITE_OK) error_handler(rc);
 
-  unqlite_kv_delete(pDb, &(file_fcb->data), KEY_SIZE);
+  int num_blocks = get_num_blocks(file_fcb->size);
+
+  for (int block = 0; block < num_blocks; block++) {
+    unqlite_kv_delete(pDb, &(file_fcb->data[block]), KEY_SIZE);
+  }
 }
 
 void truncate_file(struct my_fcb* file_fcb, size_t size) {
-  void* old_file_data = malloc(file_fcb->size);
-  void* new_file_data = calloc(1, size);
+  int old_num_blocks, new_num_blocks;
 
-  unqlite_int64 object_size = file_fcb->size;
-  unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, old_file_data, &object_size);
+  old_num_blocks = get_num_blocks(file_fcb->size);
+  new_num_blocks = get_num_blocks(size);
 
-  if (file_fcb->size > size) {
-    memcpy(new_file_data, old_file_data, size);
-  } else {
-    memcpy(new_file_data, old_file_data, file_fcb->size);
+  if (new_num_blocks > old_num_blocks) {
+    // we need to create some blocks at the end of the file
+    void* empty_block = calloc(1, MY_BLOCK_SIZE);
+
+    for (int block = old_num_blocks; block < new_num_blocks; block++) {
+      uuid_generate(file_fcb->data[block]);
+      unqlite_kv_store(pDb, &(file_fcb->data[block]), KEY_SIZE, empty_block, MY_BLOCK_SIZE);
+    }
+
+    free(empty_block);
+
+  } else if (new_num_blocks < old_num_blocks) {
+    // we need to remove some blocks at the end of the file
+    for (int block = new_num_blocks; block < old_num_blocks; block++) {
+      unqlite_kv_delete(pDb, &(file_fcb->data[block]), KEY_SIZE);
+    }
   }
-
-  unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, new_file_data, size);
 
   file_fcb->size = size;
   update_file(*file_fcb);
@@ -114,21 +151,26 @@ void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t off
   print_id(&(file_fcb.id));
   puts("\n");
 
-  void* file_data = malloc(file_fcb.size);
+  int rc;
 
-  unqlite_int64 object_size = file_fcb.size;
-  int rc = unqlite_kv_fetch(pDb, &(file_fcb.data), KEY_SIZE, file_data, &object_size);
+  int first_block, last_block;
+  get_block_indexes(size, offset, &first_block, &last_block);
 
-  if (rc == UNQLITE_OK) {
-    memcpy(buffer, file_data + offset, size);
+  void* file_data = malloc(size_round_up_to(file_fcb.size, MY_BLOCK_SIZE));
+
+  for (int block = first_block; block <= last_block; block++) {
+    void* block_data = file_data + block * MY_BLOCK_SIZE;
+
+    unqlite_int64 block_size = MY_BLOCK_SIZE;
+    rc = unqlite_kv_fetch(pDb, &(file_fcb.data[block]), KEY_SIZE, block_data, &block_size);
+
+    if (rc != UNQLITE_OK) {
+      puts("Error while reading file block");
+      exit(-1);
+    }
   }
 
-  if (rc == UNQLITE_NOTFOUND) {
-    puts("File data not found");
-  } else if (rc != UNQLITE_OK) {
-    error_handler(rc);
-  }
-
+  memcpy(buffer, file_data + offset, size);
   free(file_data);
 }
 
@@ -139,38 +181,38 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
 
   int rc;
 
-  size_t data_size;
-
   if ((offset + size) > file_fcb->size) {
-    data_size = offset + size;
-  } else {
-    data_size = file_fcb->size;
+    truncate_file(file_fcb, offset + size);
   }
 
-  void* file_data = calloc(1, data_size);
+  int first_block, last_block;
+  get_block_indexes(size, offset, &first_block, &last_block);
 
-  if (file_fcb->size > 0) {
-    unqlite_int64 object_size = file_fcb->size;
-    rc = unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, file_data, &object_size);
-  } else {
-    uuid_generate(file_fcb->data);
-    rc = UNQLITE_OK;
+  void* file_data = malloc(size_round_up_to(file_fcb->size, MY_BLOCK_SIZE));
+
+  for (int block = first_block; block <= last_block; block++) {
+    void* block_data = file_data + block * MY_BLOCK_SIZE;
+
+    unqlite_int64 block_size = MY_BLOCK_SIZE;
+    rc = unqlite_kv_fetch(pDb, &(file_fcb->data[block]), KEY_SIZE, block_data, &block_size);
+
+    if (rc != UNQLITE_OK) {
+      puts("Error while reading file block");
+      exit(-1);
+    }
   }
 
-  if (rc == UNQLITE_OK) {
-    memcpy(file_data + offset, buffer, size);
-    rc = unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, file_data, data_size);
-  }
+  memcpy(file_data + offset, buffer, size);
 
-  if (rc == UNQLITE_OK) {
-    file_fcb->size = data_size;
-    update_file(*file_fcb);
-  }
+  for (int block = first_block; block <= last_block; block++) {
+    void* block_data = file_data + block * MY_BLOCK_SIZE;
 
-  if (rc == UNQLITE_NOTFOUND) {
-    puts("File data not found");
-  } else if (rc != UNQLITE_OK) {
-    error_handler(rc);
+    rc = unqlite_kv_store(pDb, &(file_fcb->data[block]), KEY_SIZE, block_data, MY_BLOCK_SIZE);
+
+    if (rc != UNQLITE_OK) {
+      puts("Error while writing file block");
+      exit(-1);
+    }
   }
 
   free(file_data);

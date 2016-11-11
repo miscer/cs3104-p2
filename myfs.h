@@ -1,6 +1,8 @@
 #include "fs.h"
 
 #define MY_MAX_PATH 256
+#define MY_BLOCK_SIZE 4096
+#define MY_MAX_BLOCKS 100
 
 struct my_fcb {
   uuid_t id;    /* file ID */
@@ -12,7 +14,7 @@ struct my_fcb {
   time_t ctime; /* time of last change to meta-data (status) */
   nlink_t nlink; /* number of hard links */
   off_t size;   /* size */
-  uuid_t data;  /* data */
+  uuid_t data[MY_MAX_BLOCKS];  /* data */
 };
 
 struct my_dir_header {

@@ -7,7 +7,7 @@ void test_whole() {
   struct my_fcb file_fcb;
   create_file(0, user, &file_fcb);
 
-  size_t size = 100000000;
+  size_t size = MY_BLOCK_SIZE * 50;
   int* data_src = malloc(size);
 
   write_file_data(&file_fcb, data_src, size, 0);
@@ -27,8 +27,8 @@ void test_part() {
   struct my_fcb file_fcb;
   create_file(0, user, &file_fcb);
 
-  off_t offset = 1000000;
-  size_t size = 1000000;
+  off_t offset = MY_BLOCK_SIZE * 20;
+  size_t size = MY_BLOCK_SIZE * 20;
   int* data_src = malloc(size);
 
   write_file_data(&file_fcb, data_src, size, offset);
