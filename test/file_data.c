@@ -44,7 +44,7 @@ void test_part() {
 }
 
 int main() {
-  int rc = unqlite_open(&pDb, "create_file.db", UNQLITE_OPEN_CREATE);
+  int rc = unqlite_open(&pDb, "file_data.db", UNQLITE_OPEN_CREATE);
   if (rc != UNQLITE_OK) error_handler(rc);
 
   test_whole();

@@ -8,12 +8,12 @@ int main() {
   struct my_user user = {1, 1};
 
   struct my_fcb dir_fcb;
-  create_directory(0, user, &dir_fcb);
+  create_directory(S_IRUSR|S_IWUSR|S_IXUSR, user, &dir_fcb);
 
   uuid_copy(root_object.id, dir_fcb.id);
 
   struct my_fcb file_fcb;
-  create_file(0, user, &file_fcb);
+  create_file(S_IRUSR|S_IWUSR, user, &file_fcb);
 
   uuid_t file_id;
   uuid_copy(file_id, file_fcb.id);
