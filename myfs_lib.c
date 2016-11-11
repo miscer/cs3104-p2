@@ -1,5 +1,34 @@
 #include "myfs_lib.h"
 
+void read_db_object(uuid_t key, void* buffer, size_t size) {
+  unqlite_int64 unqlite_size = size;
+  int rc = unqlite_kv_fetch(pDb, key, KEY_SIZE, buffer, &unqlite_size);
+  error_handler(rc);
+}
+
+void write_db_object(uuid_t key, void* buffer, size_t size) {
+  int rc = unqlite_kv_store(pDb, key, KEY_SIZE, buffer, size);
+  error_handler(rc);
+}
+
+void delete_db_object(uuid_t key) {
+  int rc = unqlite_kv_delete(pDb, key, KEY_SIZE);
+  error_handler(rc);
+}
+
+char has_db_object(uuid_t key) {
+  unqlite_int64 unqlite_size;
+  int rc = unqlite_kv_fetch(pDb, key, KEY_SIZE, NULL, &unqlite_size);
+
+  if (rc == UNQLITE_OK) {
+    return 1;
+  } else if (rc == UNQLITE_NOTFOUND) {
+    return 0;
+  } else {
+    error_handler(rc);
+  }
+}
+
 void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) {
   dir_fcb->uid = user.uid;
   dir_fcb->gid = user.gid;
@@ -15,14 +44,10 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   print_id(&(dir_fcb->id));
   puts("\n");
 
-  int rc;
-
-  rc = unqlite_kv_store(pDb, &(dir_fcb->id), KEY_SIZE, dir_fcb, sizeof(struct my_fcb));
-  if (rc != UNQLITE_OK) error_handler(rc);
+  write_db_object(dir_fcb->id, dir_fcb, sizeof(struct my_fcb));
 
   struct my_index index_block;
-  rc = unqlite_kv_store(pDb, &(dir_fcb->data), KEY_SIZE, &index_block, sizeof(index_block));
-  if (rc != UNQLITE_OK) error_handler(rc);
+  write_db_object(dir_fcb->data, &index_block, sizeof(index_block));
 
   struct my_dir_header dir_header = {0, -1};
   write_file_data(dir_fcb, &dir_header, sizeof(dir_header), 0);
@@ -44,14 +69,10 @@ void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
   print_id(&(file_fcb->id));
   puts("\n");
 
-  int rc;
-
-  rc = unqlite_kv_store(pDb, &(file_fcb->id), KEY_SIZE, file_fcb, sizeof(struct my_fcb));
-  if (rc != UNQLITE_OK) error_handler(rc);
+  write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 
   struct my_index index_block;
-  rc = unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, &index_block, sizeof(index_block));
-  if (rc != UNQLITE_OK) error_handler(rc);
+  write_db_object(file_fcb->data, &index_block, sizeof(index_block));
 }
 
 int read_file(uuid_t *id, struct my_fcb* file_fcb) {
@@ -59,19 +80,13 @@ int read_file(uuid_t *id, struct my_fcb* file_fcb) {
   print_id(id);
   puts("\n");
 
-  unqlite_int64 size = sizeof(struct my_fcb);
-  int rc = unqlite_kv_fetch(pDb, id, KEY_SIZE, file_fcb, &size);
-
-  if (rc == UNQLITE_OK) {
+  if (has_db_object(*id)) {
+    read_db_object(*id, file_fcb, sizeof(struct my_fcb));
     return 0;
 
-  } else if (rc == UNQLITE_NOTFOUND) {
+  } else {
     puts("File not found");
     return -1;
-
-  } else {
-    error_handler(rc);
-    return -2;
   }
 }
 
@@ -80,11 +95,7 @@ void update_file(struct my_fcb file_fcb) {
   print_id(&(file_fcb.id));
   puts("\n");
 
-  int rc = unqlite_kv_store(pDb, &(file_fcb.id), KEY_SIZE, &file_fcb, sizeof(struct my_fcb));
-
-  if (rc != UNQLITE_OK) {
-    error_handler(rc);
-  }
+  write_db_object(file_fcb.id, &file_fcb, sizeof(struct my_fcb));
 }
 
 static size_t size_round_up_to(size_t num, size_t up_to) {
@@ -116,35 +127,22 @@ void remove_file(struct my_fcb* file_fcb) {
   print_id(&(file_fcb->id));
   puts("\n");
 
-  int rc;
-
   struct my_index index_block;
-
-  unqlite_int64 block_size = sizeof(index_block);
-  rc = unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, &index_block, &block_size);
-  if (rc != UNQLITE_OK) error_handler(rc);
+  read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   int num_blocks = get_num_blocks(file_fcb->size);
 
   for (int block = 0; block < num_blocks; block++) {
-    unqlite_kv_delete(pDb, &(index_block.entries[block]), KEY_SIZE);
+    delete_db_object(index_block.entries[block]);
   }
 
-  rc = unqlite_kv_delete(pDb, &(file_fcb->data), KEY_SIZE);
-  if (rc != UNQLITE_OK) error_handler(rc);
-
-  rc = unqlite_kv_delete(pDb, &(file_fcb->id), KEY_SIZE);
-  if (rc != UNQLITE_OK) error_handler(rc);
+  delete_db_object(file_fcb->data);
+  delete_db_object(file_fcb->id);
 }
 
 void truncate_file(struct my_fcb* file_fcb, size_t size) {
-  int rc;
-
   struct my_index index_block;
-
-  unqlite_int64 block_size = sizeof(index_block);
-  rc = unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, &index_block, &block_size);
-  if (rc != UNQLITE_OK) error_handler(rc);
+  read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   int old_num_blocks = get_num_blocks(file_fcb->size);
   int new_num_blocks = get_num_blocks(size);
@@ -155,18 +153,17 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
 
     for (int block = old_num_blocks; block < new_num_blocks; block++) {
       uuid_generate(index_block.entries[block]);
-      unqlite_kv_store(pDb, &(index_block.entries[block]), KEY_SIZE, empty_block, MY_BLOCK_SIZE);
+      write_db_object(index_block.entries[block], empty_block, MY_BLOCK_SIZE);
     }
 
     free(empty_block);
 
-    rc = unqlite_kv_store(pDb, &(file_fcb->data), KEY_SIZE, &index_block, sizeof(index_block));
-    if (rc != UNQLITE_OK) error_handler(rc);
+    write_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   } else if (new_num_blocks < old_num_blocks) {
     // we need to remove some blocks at the end of the file
     for (int block = new_num_blocks; block < old_num_blocks; block++) {
-      unqlite_kv_delete(pDb, &(index_block.entries[block]), KEY_SIZE);
+      delete_db_object(index_block.entries[block]);
     }
   }
 
@@ -179,13 +176,8 @@ void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t off
   print_id(&(file_fcb.id));
   puts("\n");
 
-  int rc;
-
   struct my_index index_block;
-
-  unqlite_int64 block_size = sizeof(index_block);
-  rc = unqlite_kv_fetch(pDb, &(file_fcb.data), KEY_SIZE, &index_block, &block_size);
-  if (rc != UNQLITE_OK) error_handler(rc);
+  read_db_object(file_fcb.data, &index_block, sizeof(index_block));
 
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
@@ -194,14 +186,7 @@ void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t off
 
   for (int block = first_block; block <= last_block; block++) {
     void* block_data = file_data + block * MY_BLOCK_SIZE;
-
-    unqlite_int64 block_size = MY_BLOCK_SIZE;
-    rc = unqlite_kv_fetch(pDb, &(index_block.entries[block]), KEY_SIZE, block_data, &block_size);
-
-    if (rc != UNQLITE_OK) {
-      puts("Error while reading file block");
-      exit(-1);
-    }
+    read_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
   }
 
   memcpy(buffer, file_data + offset, size);
@@ -213,17 +198,12 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   print_id(&(file_fcb->id));
   puts("\n");
 
-  int rc;
-
   if ((offset + size) > file_fcb->size) {
     truncate_file(file_fcb, offset + size);
   }
 
   struct my_index index_block;
-
-  unqlite_int64 block_size = sizeof(index_block);
-  rc = unqlite_kv_fetch(pDb, &(file_fcb->data), KEY_SIZE, &index_block, &block_size);
-  if (rc != UNQLITE_OK) error_handler(rc);
+  read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
@@ -232,27 +212,14 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
 
   for (int block = first_block; block <= last_block; block++) {
     void* block_data = file_data + block * MY_BLOCK_SIZE;
-
-    unqlite_int64 block_size = MY_BLOCK_SIZE;
-    rc = unqlite_kv_fetch(pDb, &(index_block.entries[block]), KEY_SIZE, block_data, &block_size);
-
-    if (rc != UNQLITE_OK) {
-      puts("Error while reading file block");
-      exit(-1);
-    }
+    read_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
   }
 
   memcpy(file_data + offset, buffer, size);
 
   for (int block = first_block; block <= last_block; block++) {
     void* block_data = file_data + block * MY_BLOCK_SIZE;
-
-    rc = unqlite_kv_store(pDb, &(index_block.entries[block]), KEY_SIZE, block_data, MY_BLOCK_SIZE);
-
-    if (rc != UNQLITE_OK) {
-      puts("Error while writing file block");
-      exit(-1);
-    }
+    write_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
   }
 
   free(file_data);

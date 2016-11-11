@@ -17,6 +17,11 @@ struct my_user {
   gid_t  gid; /**< Group ID */
 };
 
+void read_db_object(uuid_t, void*, size_t);
+void write_db_object(uuid_t, void*, size_t);
+void delete_db_object(uuid_t);
+char has_db_object(uuid_t);
+
 /**
  * @brief Creates a new file and stores it in the database
  * @param mode File mode
