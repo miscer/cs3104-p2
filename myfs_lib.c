@@ -339,7 +339,7 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   }
 }
 
-static struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
+struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
   return dir_data + sizeof(struct my_dir_header) + offset * sizeof(struct my_dir_entry);
 }
 

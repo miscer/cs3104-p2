@@ -207,6 +207,14 @@ void clean_dir_iterator(struct my_dir_iter*);
 int get_directory_size(struct my_fcb*);
 
 /**
+ * @brief Calculates pointer to a directory entry based on the entry index
+ * @param dir_data Pointer to the directory data
+ * @param offset Directory entry offset/index
+ * @return Pointer to the directory entry in the directory data
+ */
+struct my_dir_entry* get_dir_entry(void*, int);
+
+/**
  * @brief Adds a file to a directory and updates the number of links field
  *
  * This method has to be used for adding files to directories to maintain
