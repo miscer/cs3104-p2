@@ -38,6 +38,7 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   dir_fcb->mtime = time(0);
   dir_fcb->ctime = time(0);
   dir_fcb->size = 0;
+  dir_fcb->nlink = 0;
 
   uuid_generate(dir_fcb->id);
   uuid_generate(dir_fcb->data);
