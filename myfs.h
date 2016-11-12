@@ -4,6 +4,7 @@
 #define MY_BLOCK_SIZE 16384
 #define MY_MAX_BLOCKS 65536
 #define MY_MAX_OPEN_FILES 1000
+#define MY_MAX_FILE_SIZE MY_MAX_BLOCKS*MY_BLOCK_SIZE
 
 struct my_fcb {
   uuid_t id;    /* file ID */

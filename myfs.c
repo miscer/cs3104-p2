@@ -76,11 +76,25 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
   struct my_fcb file_fcb;
   get_open_file(fi->fh, &file_fcb);
 
-  if (file_fcb.size > 0) {
+  if (file_fcb.size == 0) {
+    // file is empty, nothing to see here
+    return 0;
+
+  } else if (offset >= file_fcb.size) {
+    // cannot read beyond the end of the file
+    return 0;
+
+  } else if ((offset + size) > file_fcb.size) {
+    // cannot read beyond the end of file, but can read until it
+    size = file_fcb.size - offset;
+
     read_file_data(file_fcb, buf, size, offset);
     return size;
+
   } else {
-    return 0;
+    // read range is ok
+    read_file_data(file_fcb, buf, size, offset);
+    return size;
   }
 }
 
@@ -163,9 +177,20 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   struct my_fcb file_fcb;
   get_open_file(fi->fh, &file_fcb);
 
-  write_file_data(&file_fcb, (char*)buf, size, offset);
+  if (offset >= MY_MAX_FILE_SIZE) {
+    write_log("myfs_write - EFBIG\n");
+    return -EFBIG;
 
-  return size;
+  } else if ((offset + size) > MY_MAX_FILE_SIZE) {
+    size = MY_MAX_FILE_SIZE - offset;
+
+    write_file_data(&file_fcb, (char*)buf, size, offset);
+    return size;
+
+  } else {
+    write_file_data(&file_fcb, (char*)buf, size, offset);
+    return size;
+  }
 }
 
 // Set the size of a file.
