@@ -384,5 +384,32 @@ int get_num_blocks(size_t);
  */
 void get_block_indexes(size_t, off_t, int*, int*);
 
+/**
+ * @brief Reads data from a data block into the buffer
+ *
+ * The function calculates where the block data should be in the buffer based
+ * on the size and offset. The offset is relative to the start of the file to
+ * which the data block belongs.
+ *
+ * @param id ID of the data block, used as a key in the database
+ * @param block Index of the block in the file
+ * @param buffer Buffer for the data
+ * @param size Size of the buffer
+ * @param offset Offset of the buffer in the read file
+ */
 void read_block_to_buffer(uuid_t, int, void*, size_t, off_t);
+
+/**
+ * @brief Writes data from the buffer to a data block
+ *
+ * The function calculates which of the data from the buffer should be written
+ * into the data block and at which offset in the block. The offset is relative
+ * to the start of the file to which the data block belongs.
+ *
+ * @param id ID of the data block, used as a key in the database
+ * @param block Index of the block in the file
+ * @param buffer Buffer for the data
+ * @param size Size of the buffer
+ * @param offset Offset of the buffer in the written file
+ */
 void write_buffer_to_block(uuid_t, int, void*, size_t, off_t);

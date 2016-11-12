@@ -208,40 +208,41 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
 }
 
 void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+  // read the data from the data block into memory
   void* block_data = malloc(MY_BLOCK_SIZE);
   read_db_object(id, block_data, MY_BLOCK_SIZE);
 
-  /** @var Offset of the first byte of the block */
+  /** @var Offset in the file of the first byte of the block */
   off_t block_start = block_num * MY_BLOCK_SIZE;
-  /** @var Offset of the last byte of the block */
+  /** @var Offset in the file of the last byte of the block */
   off_t block_end = block_start + MY_BLOCK_SIZE - 1;
 
-  /** @var Offset of the first byte of the read data */
+  /** @var Offset in the file of the first byte of the read data */
   off_t data_start = offset;
-  /** @var Offset of the last byte of the read data */
+  /** @var Offset in the file of the last byte of the read data */
   off_t data_end = offset + size - 1;
 
-  // |------|
-  //   ^--^
+  // requested data range is fully contained in the block
   if (block_start <= data_start && block_end >= data_end) {
+    // copy a slice of the data block into the buffer
     memcpy(buffer, block_data + (data_start - block_start), size);
   }
 
-  // |------|
-  //   ^-------^
+  // requested data range starts in the block, but ends outside it
   if (block_start <= data_start && block_end < data_end) {
+    // copy the data from data start until the block end to the buffer
     memcpy(buffer, block_data + (data_start - block_start), block_end - data_start + 1);
   }
 
-  //    |------|
-  // ^-----^
+  // request data range ends in the block, but starts outside it
   if (block_start > data_start && block_end >= data_end) {
+    // copy the data from block start until the data end to the buffer
     memcpy(buffer + (block_start - data_start), block_data, data_end - block_start + 1);
   }
 
-  //    |-------|
-  // ^-------------^
+  // requested data range starts and ends outside the block
   if (block_start > data_start && block_end < data_end) {
+    // copy the whole data block to the buffer
     memcpy(buffer + (block_start - data_start), block_data, MY_BLOCK_SIZE);
   }
 
@@ -253,55 +254,62 @@ void read_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t of
   print_id(&(file_fcb->id));
   puts("\n");
 
+  // read the index block from the database
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
+  // get the indexes of the first and last data block needed for reading
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
 
+  // go through the data blocks and read data from them into the buffer
   for (int block = first_block; block <= last_block; block++) {
     read_block_to_buffer(index_block.entries[block], block, buffer, size, offset);
   }
 }
 
 void write_buffer_to_block(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+  // read the data from the data block into memory
+  // we need to do this because we will be writing the whole block back into
+  // database, even though only a part of it may change
   void* block_data = malloc(MY_BLOCK_SIZE);
   read_db_object(id, block_data, MY_BLOCK_SIZE);
 
-  /** @var Offset of the first byte of the block */
+  /** @var Offset in the file of the first byte of the block */
   off_t block_start = block_num * MY_BLOCK_SIZE;
-  /** @var Offset of the last byte of the block */
+  /** @var Offset in the file of the last byte of the block */
   off_t block_end = block_start + MY_BLOCK_SIZE - 1;
 
-  /** @var Offset of the first byte of the read data */
+  /** @var Offset in the file of the first byte of the read data */
   off_t data_start = offset;
-  /** @var Offset of the last byte of the read data */
+  /** @var Offset in the file of the last byte of the read data */
   off_t data_end = offset + size - 1;
 
-  // |------|
-  //   ^--^
+  // needed data range is fully contained in the block
   if (block_start <= data_start && block_end >= data_end) {
+    // copy data from the whole buffer into the data block
     memcpy(block_data + (data_start - block_start), buffer, size);
   }
 
-  // |------|
-  //   ^-------^
+  // needed data range starts in the block, but ends outside it
   if (block_start <= data_start && block_end < data_end) {
+    // copy data from the start of the buffer into the data block
     memcpy(block_data + (data_start - block_start), buffer, block_end - data_start + 1);
   }
 
-  //    |------|
-  // ^-----^
+  // needed data range ends in the block, but starts outside it
   if (block_start > data_start && block_end >= data_end) {
+    // copy data from the end of the buffer into the data block
     memcpy(block_data, buffer + (block_start - data_start), data_end - block_start + 1);
   }
 
-  //    |-------|
-  // ^-------------^
+  // needed data range starts and ends outside the block
   if (block_start > data_start && block_end < data_end) {
+    // copy data from the block into the whole data block
     memcpy(block_data, buffer + (block_start - data_start), MY_BLOCK_SIZE);
   }
 
+  // save the changed data in the block back to the database
   write_db_object(id, block_data, MY_BLOCK_SIZE);
   free(block_data);
 }
@@ -311,16 +319,21 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   print_id(&(file_fcb->id));
   puts("\n");
 
+  // if we are writing outside the current file data, it needs to be expanded
+  // first to be able to accommodate the new data
   if ((offset + size) > file_fcb->size) {
     truncate_file(file_fcb, offset + size);
   }
 
+  // read the index block from the database
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
+  // get the indexes of the first and last data block needed for writing
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
 
+  // go through the data blocks and write data to them from the buffer
   for (int block = first_block; block <= last_block; block++) {
     write_buffer_to_block(index_block.entries[block], block, buffer, size, offset);
   }
