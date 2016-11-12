@@ -118,29 +118,232 @@ int find_file(const char*, struct my_user, struct my_fcb*);
  * @return Result of the traversal algorithm
  */
 int find_dir_entry(const char*, struct my_user, struct my_fcb*, struct my_fcb*);
+
+/**
+ * @brief Writes the FCB into the database, replacing the previous version
+ * @param fcb Pointer to the updated FCB, its ID is used as the database key
+ */
 void update_file(struct my_fcb*);
+
+/**
+ * @brief Removes the file and all its data from the database
+ * @param fcb Pointer to the removed FCB, its ID is used as the database key
+ */
 void remove_file(struct my_fcb*);
+
+/**
+ * @brief Changes the size of the file, deleting or creating data blocks as needed
+ *
+ * All new blocks are filled with zeroes
+ *
+ * @param fcb Pointer to the updated FCB, its ID is used as the database key
+ * @param size New size of the file
+ */
 void truncate_file(struct my_fcb*, size_t);
+
+/**
+ * @brief Reads a range of the file data into the buffer
+ * @param fcb Pointer to the FCB of the read file
+ * @param buffer Buffer for storing the read data
+ * @param size Size of the buffer
+ * @param offset Offset in the file to read data from
+ */
 void read_file_data(struct my_fcb*, void*, size_t, off_t);
+
+/**
+ * @brief Writes to a range of the file data from the buffer
+ * @param fcb Pointer to the FCB of the updated file
+ * @param buffer Buffer for reading the written data
+ * @param size Size of the buffer
+ * @param offset Offset in the file to write data to
+ */
 void write_file_data(struct my_fcb*, void*, size_t, off_t);
+
+/**
+ * @brief Adds an entry with the specified name to the directory
+ * @param dir_fcb Pointer to the FCB of the directory
+ * @param file_fcb Pointer to the FCB of the added file
+ * @param name Name of the new directory entry
+ */
 void add_dir_entry(struct my_fcb*, struct my_fcb*, const char*);
+
+/**
+ * @brief Removes an entry with the specified name from the directory
+ * @param dir_fcb Pointer to the FCB of the directory
+ * @param name Name of the removed directory entry
+ * @return 1 if the entry was in the directory, 0 otherwise
+ */
 int remove_dir_entry(struct my_fcb*, const char*);
+
+/**
+ * @brief Creates an iterator for directory entries
+ *
+ * The iterator can be then used with next_dir_entry and has to be passed
+ * to clean_dir_iterator when it is no longer needed
+ *
+ * @param fcb Pointer to the FCB of the iterated directory
+ * @param iterator Pointer to the previously allocated iterator
+ */
 void iterate_dir_entries(struct my_fcb*, struct my_dir_iter*);
+
+/**
+ * @brief Returns current directory entry and advances the iterator
+ * @param iterator Pointer to the iterator
+ * @return Pointer to an entry, or NULL if the iterator is at the end
+ */
 struct my_dir_entry* next_dir_entry(struct my_dir_iter*);
+
+/**
+ * @brief Deallocates memory used by the iterator
+ * @param iterator Pointer to the iterator
+ */
 void clean_dir_iterator(struct my_dir_iter*);
+
+/**
+ * @brief Determines directory size
+ * @param fcb Pointer to the FCB of the directory
+ * @return Number of entries in the directory
+ */
 int get_directory_size(struct my_fcb*);
+
+/**
+ * @brief Adds a file to a directory and updates the number of links field
+ *
+ * This method has to be used for adding files to directories to maintain
+ * the number of links pointing to the file value
+ *
+ * @param dir_fcb Pointer to the FCB of the parent directory
+ * @param file_fcb Pointer to the FCB of the linked file
+ * @param name Directory entry name
+ */
 void link_file(struct my_fcb*, struct my_fcb*, const char*);
+
+/**
+ * @brief Removes a file to a directory and updates the number of links field
+ *
+ * This method has to be used for removing files from directories to maintain
+ * the number of links pointing to the file value.
+ *
+ * If the file has no other links pointing to it and it is not open, it is
+ * deleted from the database.
+ *
+ * @param dir_fcb Pointer to the FCB of the parent directory
+ * @param file_fcb Pointer to the FCB of the linked file
+ * @param name Directory entry name
+ */
 void unlink_file(struct my_fcb*, struct my_fcb*, const char*);
+
+/**
+ * @brief Splits a path string into the first component and the rest
+ *
+ * Path component is anything between path separators ('/').
+ *
+ * This function uses strsep internally and the behaviour is the same. The
+ * original string is modified so that it is split into two strings by replacing
+ * a '/' character with '\0'.
+ *
+ * The passed string pointer is then changed to point to the rest of the path
+ * and pointer to the first component is returned.
+ *
+ * If the path is empty, NULL is returned. If there are no other path components
+ * in the rest of the path, the passed pointer is changed to NULL.
+ *
+ * @param Pointer to the string containing the path
+ * @return String containing the first component of the path
+ */
 char* path_split(char**);
+
+/**
+ * @brief Returns the last component (file name) of the path
+ *
+ * The passed string is modified and should not be used again.
+ *
+ * @param Path string
+ * @return String containing the last component of the path
+ */
 char* path_file_name(char*);
+
+/**
+ * @brief Determines whether the FCB is a directory
+ * @param Pointer to the FCB
+ * @return 1 if it is a directory, 0 otherwise
+ */
 char is_directory(struct my_fcb*);
+
+/**
+ * @brief Determines whether the FCB is a regular file
+ * @param Pointer to the FCB
+ * @return 1 if it is a file, 0 otherwise
+ */
 char is_file(struct my_fcb*);
+
+/**
+ * @brief Reads the user and group IDs from FUSE context
+ * @return User struct with user and group IDs
+ */
 struct my_user get_context_user();
+
+/**
+ * @brief Determines whether the user can read the file based on its mode
+ * @param fcb Pointer to the FCB of the file
+ * @param user User struct containing user and group ID
+ * @return 1 if the user can read, 0 otherwise
+ */
 char can_read(struct my_fcb*, struct my_user);
+
+/**
+ * @brief Determines whether the user can write the file based on its mode
+ * @param fcb Pointer to the FCB of the file
+ * @param user User struct containing user and group ID
+ * @return 1 if the user can write, 0 otherwise
+ */
 char can_write(struct my_fcb*, struct my_user);
+
+/**
+ * @brief Determines whether the user can execute the file based on its mode
+ * @param fcb Pointer to the FCB of the file
+ * @param user User struct containing user and group ID
+ * @return 1 if the user can execute, 0 otherwise
+ */
 char can_execute(struct my_fcb*, struct my_user);
+
+/**
+ * @brief Checks permissions based on flags used in an open call
+ * @param fcb Pointer to the FCB of the file
+ * @param user User struct containing user and group ID
+ * @param flags Flags from the open call
+ * @return 1 if the user can access the file as requested, 0 otherwise
+ */
 char check_open_flags(struct my_fcb*, struct my_user, int);
+
+/**
+ * @brief Finds a file by its handle in the open file table
+ * @param fcb Pointer to a FCB where the found open file
+ * @return 0 if there is a file with this handle, -1 otherwise
+ */
 int get_open_file(int, struct my_fcb*);
+
+/**
+ * @brief Adds the file to the open file table and returns its handle
+ * @param fcb Pointer to the FCB of the file
+ * @return File handle to retrieve the file later
+ */
 int add_open_file(struct my_fcb*);
+
+/**
+ * @brief Removes the file from the open file table based on its handle
+ *
+ * After the file is closed, there are no links to it and it is not open with
+ * other handles, it is removed from the database.
+ *
+ * @param handle File handle
+ * @return 1 if there was a file with the specified handle, 0 otherwise
+ */
 int remove_open_file(int);
+
+/**
+ * @brief Checks whether the file is open
+ * @param fcb Pointer to the FCB of the file
+ * @return 1 if the file is open, 0 otherwise
+ */
 char is_file_open(struct my_fcb*);
