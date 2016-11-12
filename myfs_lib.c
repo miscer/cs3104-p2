@@ -1,8 +1,14 @@
 #include "myfs_lib.h"
 
+/**
+ * @var Open file table
+ * Array indexes are the file handles used to identify open files
+ */
 static struct my_open_file open_files[MY_MAX_OPEN_FILES];
 
 void read_db_object(uuid_t key, void* buffer, size_t size) {
+  // separate variable for size is required because unqlite will store
+  // the read size in it
   unqlite_int64 unqlite_size = size;
   int rc = unqlite_kv_fetch(pDb, key, KEY_SIZE, buffer, &unqlite_size);
   error_handler(rc);
@@ -20,6 +26,7 @@ void delete_db_object(uuid_t key) {
 
 char has_db_object(uuid_t key) {
   unqlite_int64 unqlite_size;
+  // NULL is used as the buffer to prevent actually reading the object
   int rc = unqlite_kv_fetch(pDb, key, KEY_SIZE, NULL, &unqlite_size);
 
   if (rc == UNQLITE_OK) {
@@ -40,6 +47,7 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   dir_fcb->size = 0;
   dir_fcb->nlink = 0;
 
+  // create uuids for the FCB and index block
   uuid_generate(dir_fcb->id);
   uuid_generate(dir_fcb->data);
 
@@ -47,11 +55,14 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   print_id(&(dir_fcb->id));
   puts("\n");
 
+  // write the FCB to the database
   write_db_object(dir_fcb->id, dir_fcb, sizeof(struct my_fcb));
 
+  // create an empty index block and write it to the database
   struct my_index index_block;
   write_db_object(dir_fcb->data, &index_block, sizeof(index_block));
 
+  // create an empty directory header and write it to the database
   struct my_dir_header dir_header = {0, -1};
   write_file_data(dir_fcb, &dir_header, sizeof(dir_header), 0);
 }
@@ -65,6 +76,7 @@ void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
   file_fcb->size = 0;
   file_fcb->nlink = 0;
 
+  // create uuids for the FCB and index block
   uuid_generate(file_fcb->id);
   uuid_generate(file_fcb->data);
 
@@ -72,8 +84,10 @@ void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
   print_id(&(file_fcb->id));
   puts("\n");
 
+  // write the FCB to the database
   write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 
+  // create an empty index block and write it to the database
   struct my_index index_block;
   write_db_object(file_fcb->data, &index_block, sizeof(index_block));
 }
@@ -101,26 +115,29 @@ void update_file(struct my_fcb* file_fcb) {
   write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 }
 
-static size_t size_round_up_to(size_t num, size_t up_to) {
+size_t size_round_up_to(size_t num, size_t up_to) {
   size_t rem = num % up_to;
 
   if (rem > 0) {
-    return num + up_to - rem;
+    // add to the number so that it is a multiple of up_to
+    return num + (up_to - rem);
   } else {
     return num;
   }
 }
 
-static size_t size_round_down_to(size_t num, size_t up_to) {
+size_t size_round_down_to(size_t num, size_t up_to) {
   size_t rem = num % up_to;
+
+  // subtract from the number so that it is a multiple of up_to
   return num - rem;
 }
 
-static size_t get_num_blocks(size_t size) {
+int get_num_blocks(size_t size) {
   return size_round_up_to(size, MY_BLOCK_SIZE) / MY_BLOCK_SIZE;
 }
 
-static void get_block_indexes(size_t size, off_t offset, int* first, int* last) {
+void get_block_indexes(size_t size, off_t offset, int* first, int* last) {
   *first = size_round_down_to(offset, MY_BLOCK_SIZE) / MY_BLOCK_SIZE;
   *last = size_round_up_to(offset + size, MY_BLOCK_SIZE) / MY_BLOCK_SIZE - 1;
 }
@@ -130,46 +147,62 @@ void remove_file(struct my_fcb* file_fcb) {
   print_id(&(file_fcb->id));
   puts("\n");
 
+  // read the index block for the file
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
+  // get the number of data blocks used by the file data
   int num_blocks = get_num_blocks(file_fcb->size);
 
+  // delete all data blocks
   for (int block = 0; block < num_blocks; block++) {
     delete_db_object(index_block.entries[block]);
   }
 
+  // delete the index block and FCB
   delete_db_object(file_fcb->data);
   delete_db_object(file_fcb->id);
 }
 
 void truncate_file(struct my_fcb* file_fcb, size_t size) {
+  // read the index block for the file
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
+  /** @var Number of data blocks currently used by the file */
   int old_num_blocks = get_num_blocks(file_fcb->size);
+
+  /** @var Number of data blocks the file needs to have */
   int new_num_blocks = get_num_blocks(size);
 
   if (new_num_blocks > old_num_blocks) {
     // we need to create some blocks at the end of the file
+
+    /** @var Pointer to a data block filled with zeroes */
     void* empty_block = calloc(1, MY_BLOCK_SIZE);
 
+    // go through all data blocks we need to create
     for (int block = old_num_blocks; block < new_num_blocks; block++) {
+      // create UUID for the data block and write an empty data block into the database
       uuid_generate(index_block.entries[block]);
       write_db_object(index_block.entries[block], empty_block, MY_BLOCK_SIZE);
     }
 
     free(empty_block);
 
+    // save changes made in the index block to the database
     write_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   } else if (new_num_blocks < old_num_blocks) {
     // we need to remove some blocks at the end of the file
+
+    // go through all data blocks that need to be removed
     for (int block = new_num_blocks; block < old_num_blocks; block++) {
       delete_db_object(index_block.entries[block]);
     }
   }
 
+  // finally update file size
   file_fcb->size = size;
   update_file(file_fcb);
 }

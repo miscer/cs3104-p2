@@ -347,3 +347,39 @@ int remove_open_file(int);
  * @return 1 if the file is open, 0 otherwise
  */
 char is_file_open(struct my_fcb*);
+
+/**
+ * @brief Rounds size up to a multiple of the specified number
+ * @param Number to round up
+ * @param Number to round up to
+ * @return Rounded up number
+ */
+size_t size_round_up_to(size_t num, size_t up_to);
+
+/**
+ * @brief Rounds size down to a multiple of the specified number
+ * @param Number to round down
+ * @param Number to round down to
+ * @return Rounded down number
+ */
+size_t size_round_down_to(size_t num, size_t up_to);
+
+/**
+ * @brief Calculates the number of data blocks needed to store the specified size
+ * @param File size
+ * @return Number of blocks
+ */
+int get_num_blocks(size_t size);
+
+/**
+ * @brief Calculates the indexes of the first and last block for data range
+ *
+ * To write or read a range of the data specified by its size and offset, blocks
+ * in the returned range need to be accessed.
+ *
+ * @param Data range size
+ * @param Data range offset
+ * @param Pointer to an integer where the first block index will be stored
+ * @param Pointer to an integer where the last block index will be stored
+ */
+void get_block_indexes(size_t size, off_t offset, int* first, int* last);
