@@ -593,6 +593,9 @@ void init_fs(){
     create_directory(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH,
       user, &root_dir_fcb);
 
+    root_dir_fcb.nlink = 1;
+    update_file(root_dir_fcb);
+
     printf("init_fs: writing updated root object\n");
 
     uuid_copy(root_object.id, root_dir_fcb.id);
