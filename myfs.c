@@ -287,7 +287,7 @@ static int myfs_mkdir(const char *path, mode_t mode){
 
     char* path_dup = strdup(path);
     char* dir_name = path_file_name(path_dup);
-    add_dir_entry(&parent_fcb, &dir_fcb, dir_name);
+    link_file(&parent_fcb, &dir_fcb, dir_name);
     free(path_dup);
 
     return 0;
@@ -366,10 +366,8 @@ static int myfs_rmdir(const char *path){
 
   char* path_dup = strdup(path);
   char* file_name = path_file_name(path_dup);
-  remove_dir_entry(&parent_fcb, file_name);
+  unlink_file(&parent_fcb, &dir_fcb, file_name);
   free(path_dup);
-
-  remove_file(&dir_fcb);
 
   return 0;
 }

@@ -350,11 +350,12 @@ void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name
 void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
   remove_dir_entry(dir_fcb, name);
 
-  if (file_fcb->nlink > 1) {
+  if (file_fcb->nlink > 0) {
     file_fcb->nlink--;
     update_file(*file_fcb);
+  }
 
-  } else {
+  if (file_fcb->nlink == 0 && !is_file_open(file_fcb)) {
     remove_file(file_fcb);
   }
 }
@@ -500,6 +501,26 @@ char check_open_flags(struct my_fcb* fcb, struct my_user user, int flags) {
   }
 }
 
+static int get_free_file_handle() {
+  for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
+    if (!open_files[fh].used) {
+      return fh;
+    }
+  }
+
+  return -1;
+}
+
+static int find_open_file_handle(struct my_fcb* file) {
+  for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
+    if (open_files[fh].used && uuid_compare(open_files[fh].id, file->id) == 0) {
+      return fh;
+    }
+  }
+
+  return -1;
+}
+
 int get_open_file(int fh, struct my_fcb* fcb) {
   if (open_files[fh].used) {
     read_db_object(open_files[fh].id, fcb, sizeof(struct my_fcb));
@@ -510,19 +531,10 @@ int get_open_file(int fh, struct my_fcb* fcb) {
 }
 
 int add_open_file(struct my_fcb* file) {
-  int fh;
-  char found = 0;
+  int fh = get_free_file_handle();
 
-  for (fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
-    if (!open_files[fh].used) {
-      found = 1;
-      break;
-    }
-  }
-
-  if (found) {
+  if (fh != -1) {
     uuid_copy(open_files[fh].id, file->id);
-    open_files[fh].open_count = 1;
     open_files[fh].used = 1;
 
     return fh;
@@ -532,10 +544,21 @@ int add_open_file(struct my_fcb* file) {
 }
 
 int remove_open_file(int fh) {
-  if (open_files[fh].used) {
+  struct my_fcb file;
+
+  if (get_open_file(fh, &file) == 0) {
     open_files[fh].used = 0;
+
+    if (file.nlink == 0 && !is_file_open(&file)) {
+      remove_file(&file);
+    }
+
     return 0;
   } else {
     return -1;
   }
+}
+
+char is_file_open(struct my_fcb* file) {
+  return find_open_file_handle(file) != -1;
 }

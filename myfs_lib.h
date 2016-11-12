@@ -19,7 +19,6 @@ struct my_user {
 
 struct my_open_file {
   uuid_t id;
-  int open_count;
   char used;
 };
 
@@ -110,3 +109,4 @@ char check_open_flags(struct my_fcb*, struct my_user, int);
 int get_open_file(int, struct my_fcb*);
 int add_open_file(struct my_fcb*);
 int remove_open_file(int);
+char is_file_open(struct my_fcb*);
