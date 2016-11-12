@@ -17,14 +17,48 @@ struct my_user {
   gid_t  gid; /**< Group ID */
 };
 
+/** @brief Keeps track of one open file */
 struct my_open_file {
-  uuid_t id;
-  char used;
+  uuid_t id; /**< ID of the FCB of the open file */
+  char used; /**< Boolean variable for checking if this entry is used */
 };
 
+/**
+ * @brief Reads an object from the database using the UUID as the key
+ *
+ * In case of an error the program is terminated and error is printed
+ *
+ * @param id UUID to be used as the key
+ * @param buffer Buffer to store the loaded object
+ * @param size Size of the buffer
+ */
 void read_db_object(uuid_t, void*, size_t);
+
+/**
+ * @brief Writes an object to the database using the UUID as the key
+ *
+ * In case of an error the program is terminated and error is printed
+ *
+ * @param id UUID to be used as the key
+ * @param buffer Buffer containing the stored object
+ * @param size Size of the buffer
+ */
 void write_db_object(uuid_t, void*, size_t);
+
+/**
+ * @brief Deletes an object from the database using the UUID as the key
+ *
+ * In case of an error the program is terminated and error is printed
+ *
+ * @param id UUID to be used as the key
+ */
 void delete_db_object(uuid_t);
+
+/**
+ * @brief Checks whether an object exists in the database using the UUID as the key
+ * @param id UUID to be used as the key
+ * @return 1 if the object exists, 0 otherwise
+ */
 char has_db_object(uuid_t);
 
 /**
