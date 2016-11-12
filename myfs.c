@@ -88,12 +88,12 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
     // cannot read beyond the end of file, but can read until it
     size = file_fcb.size - offset;
 
-    read_file_data(file_fcb, buf, size, offset);
+    read_file_data(&file_fcb, buf, size, offset);
     return size;
 
   } else {
     // read range is ok
-    read_file_data(file_fcb, buf, size, offset);
+    read_file_data(&file_fcb, buf, size, offset);
     return size;
   }
 }

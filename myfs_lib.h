@@ -121,7 +121,7 @@ int find_dir_entry(const char*, struct my_user, struct my_fcb*, struct my_fcb*);
 void update_file(struct my_fcb*);
 void remove_file(struct my_fcb*);
 void truncate_file(struct my_fcb*, size_t);
-void read_file_data(struct my_fcb, void*, size_t, off_t);
+void read_file_data(struct my_fcb*, void*, size_t, off_t);
 void write_file_data(struct my_fcb*, void*, size_t, off_t);
 void add_dir_entry(struct my_fcb*, struct my_fcb*, const char*);
 int remove_dir_entry(struct my_fcb*, const char*);

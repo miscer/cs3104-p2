@@ -25,7 +25,7 @@ void test_read_write(size_t size, off_t offset) {
   assert(data_check != NULL);
   printf("Allocated check\n");
 
-  read_file_data(check_fcb, data_check, size, offset);
+  read_file_data(&check_fcb, data_check, size, offset);
   printf("Read check data\n");
 
   assert(memcmp(data_src, data_check, size) == 0);

@@ -19,7 +19,7 @@ int main() {
   assert(check_fcb.size == file_fcb.size);
 
   void* check_data = malloc(check_fcb.size);
-  read_file_data(check_fcb, check_data, check_fcb.size, 0);
+  read_file_data(&check_fcb, check_data, check_fcb.size, 0);
 
   void* empty_blob = calloc(1, check_fcb.size);
   assert(memcmp(check_data, empty_blob, check_fcb.size) == 0);

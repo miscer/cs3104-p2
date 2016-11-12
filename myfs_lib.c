@@ -215,13 +215,13 @@ static void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t 
   free(block_data);
 }
 
-void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t offset) {
+void read_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t offset) {
   puts("Reading file data...");
-  print_id(&(file_fcb.id));
+  print_id(&(file_fcb->id));
   puts("\n");
 
   struct my_index index_block;
-  read_db_object(file_fcb.data, &index_block, sizeof(index_block));
+  read_db_object(file_fcb->data, &index_block, sizeof(index_block));
 
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
@@ -231,7 +231,7 @@ void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t off
   }
 }
 
-static void write_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+static void write_buffer_to_block(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
   void* block_data = malloc(MY_BLOCK_SIZE);
   read_db_object(id, block_data, MY_BLOCK_SIZE);
 
@@ -289,7 +289,7 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   get_block_indexes(size, offset, &first_block, &last_block);
 
   for (int block = first_block; block <= last_block; block++) {
-    write_block_to_buffer(index_block.entries[block], block, buffer, size, offset);
+    write_buffer_to_block(index_block.entries[block], block, buffer, size, offset);
   }
 }
 
@@ -302,7 +302,7 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   size_t max_size = data_size + sizeof(struct my_dir_entry);
 
   void* dir_data = malloc(max_size);
-  read_file_data(*dir_fcb, dir_data, data_size, 0);
+  read_file_data(dir_fcb, dir_data, data_size, 0);
 
   struct my_dir_header* dir_header = dir_data;
   struct my_dir_entry* free_entry;
@@ -328,7 +328,7 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
 
 int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
   void* dir_data = malloc(dir_fcb->size);
-  read_file_data(*dir_fcb, dir_data, dir_fcb->size, 0);
+  read_file_data(dir_fcb, dir_data, dir_fcb->size, 0);
 
   struct my_dir_header* dir_header = dir_data;
 
@@ -365,7 +365,7 @@ void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
   iter->position = 0;
   iter->dir_data = malloc(dir_fcb->size);
 
-  read_file_data(*dir_fcb, iter->dir_data, dir_fcb->size, 0);
+  read_file_data(dir_fcb, iter->dir_data, dir_fcb->size, 0);
 }
 
 struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
