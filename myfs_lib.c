@@ -207,7 +207,7 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
   update_file(file_fcb);
 }
 
-static void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
   void* block_data = malloc(MY_BLOCK_SIZE);
   read_db_object(id, block_data, MY_BLOCK_SIZE);
 
@@ -264,7 +264,7 @@ void read_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t of
   }
 }
 
-static void write_buffer_to_block(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+void write_buffer_to_block(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
   void* block_data = malloc(MY_BLOCK_SIZE);
   read_db_object(id, block_data, MY_BLOCK_SIZE);
 

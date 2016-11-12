@@ -350,26 +350,26 @@ char is_file_open(struct my_fcb*);
 
 /**
  * @brief Rounds size up to a multiple of the specified number
- * @param Number to round up
- * @param Number to round up to
+ * @param size Number to round up
+ * @param up_to Number to round up to
  * @return Rounded up number
  */
-size_t size_round_up_to(size_t num, size_t up_to);
+size_t size_round_up_to(size_t, size_t);
 
 /**
  * @brief Rounds size down to a multiple of the specified number
- * @param Number to round down
- * @param Number to round down to
+ * @param num Number to round down
+ * @param up_to Number to round down to
  * @return Rounded down number
  */
-size_t size_round_down_to(size_t num, size_t up_to);
+size_t size_round_down_to(size_t, size_t);
 
 /**
  * @brief Calculates the number of data blocks needed to store the specified size
- * @param File size
+ * @param size File size
  * @return Number of blocks
  */
-int get_num_blocks(size_t size);
+int get_num_blocks(size_t);
 
 /**
  * @brief Calculates the indexes of the first and last block for data range
@@ -377,9 +377,12 @@ int get_num_blocks(size_t size);
  * To write or read a range of the data specified by its size and offset, blocks
  * in the returned range need to be accessed.
  *
- * @param Data range size
- * @param Data range offset
- * @param Pointer to an integer where the first block index will be stored
- * @param Pointer to an integer where the last block index will be stored
+ * @param size Data range size
+ * @param offset Data range offset
+ * @param first Pointer to an integer where the first block index will be stored
+ * @param last Pointer to an integer where the last block index will be stored
  */
-void get_block_indexes(size_t size, off_t offset, int* first, int* last);
+void get_block_indexes(size_t, off_t, int*, int*);
+
+void read_block_to_buffer(uuid_t, int, void*, size_t, off_t);
+void write_buffer_to_block(uuid_t, int, void*, size_t, off_t);
