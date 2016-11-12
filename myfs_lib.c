@@ -174,6 +174,47 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
   update_file(*file_fcb);
 }
 
+static void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+  void* block_data = malloc(MY_BLOCK_SIZE);
+  read_db_object(id, block_data, MY_BLOCK_SIZE);
+
+  /** @var Offset of the first byte of the block */
+  off_t block_start = block_num * MY_BLOCK_SIZE;
+  /** @var Offset of the last byte of the block */
+  off_t block_end = block_start + MY_BLOCK_SIZE - 1;
+
+  /** @var Offset of the first byte of the read data */
+  off_t data_start = offset;
+  /** @var Offset of the last byte of the read data */
+  off_t data_end = offset + size - 1;
+
+  // |------|
+  //   ^--^
+  if (block_start <= data_start && block_end >= data_end) {
+    memcpy(buffer, block_data + (data_start - block_start), size);
+  }
+
+  // |------|
+  //   ^-------^
+  if (block_start <= data_start && block_end < data_end) {
+    memcpy(buffer, block_data + (data_start - block_start), block_end - data_start + 1);
+  }
+
+  //    |------|
+  // ^-----^
+  if (block_start > data_start && block_end >= data_end) {
+    memcpy(buffer + (block_start - data_start), block_data, data_end - block_start + 1);
+  }
+
+  //    |-------|
+  // ^-------------^
+  if (block_start > data_start && block_end < data_end) {
+    memcpy(buffer + (block_start - data_start), block_data, MY_BLOCK_SIZE);
+  }
+
+  free(block_data);
+}
+
 void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t offset) {
   puts("Reading file data...");
   print_id(&(file_fcb.id));
@@ -185,15 +226,51 @@ void read_file_data(struct my_fcb file_fcb, void* buffer, size_t size, off_t off
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
 
-  void* file_data = malloc(size_round_up_to(file_fcb.size, MY_BLOCK_SIZE));
-
   for (int block = first_block; block <= last_block; block++) {
-    void* block_data = file_data + block * MY_BLOCK_SIZE;
-    read_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
+    read_block_to_buffer(index_block.entries[block], block, buffer, size, offset);
+  }
+}
+
+static void write_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
+  void* block_data = malloc(MY_BLOCK_SIZE);
+  read_db_object(id, block_data, MY_BLOCK_SIZE);
+
+  /** @var Offset of the first byte of the block */
+  off_t block_start = block_num * MY_BLOCK_SIZE;
+  /** @var Offset of the last byte of the block */
+  off_t block_end = block_start + MY_BLOCK_SIZE - 1;
+
+  /** @var Offset of the first byte of the read data */
+  off_t data_start = offset;
+  /** @var Offset of the last byte of the read data */
+  off_t data_end = offset + size - 1;
+
+  // |------|
+  //   ^--^
+  if (block_start <= data_start && block_end >= data_end) {
+    memcpy(block_data + (data_start - block_start), buffer, size);
   }
 
-  memcpy(buffer, file_data + offset, size);
-  free(file_data);
+  // |------|
+  //   ^-------^
+  if (block_start <= data_start && block_end < data_end) {
+    memcpy(block_data + (data_start - block_start), buffer, block_end - data_start + 1);
+  }
+
+  //    |------|
+  // ^-----^
+  if (block_start > data_start && block_end >= data_end) {
+    memcpy(block_data, buffer + (block_start - data_start), data_end - block_start + 1);
+  }
+
+  //    |-------|
+  // ^-------------^
+  if (block_start > data_start && block_end < data_end) {
+    memcpy(block_data, buffer + (block_start - data_start), MY_BLOCK_SIZE);
+  }
+
+  write_db_object(id, block_data, MY_BLOCK_SIZE);
+  free(block_data);
 }
 
 void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t offset) {
@@ -211,21 +288,9 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   int first_block, last_block;
   get_block_indexes(size, offset, &first_block, &last_block);
 
-  void* file_data = malloc(size_round_up_to(file_fcb->size, MY_BLOCK_SIZE));
-
   for (int block = first_block; block <= last_block; block++) {
-    void* block_data = file_data + block * MY_BLOCK_SIZE;
-    read_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
+    write_block_to_buffer(index_block.entries[block], block, buffer, size, offset);
   }
-
-  memcpy(file_data + offset, buffer, size);
-
-  for (int block = first_block; block <= last_block; block++) {
-    void* block_data = file_data + block * MY_BLOCK_SIZE;
-    write_db_object(index_block.entries[block], block_data, MY_BLOCK_SIZE);
-  }
-
-  free(file_data);
 }
 
 static struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
