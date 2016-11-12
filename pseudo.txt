@@ -46,7 +46,7 @@ def chown(path, uid, gid)
     return ENOENT
 
   file_fcb.update(uid, gid)
-  update_file(file_fcb)
+  update_file(&file_fcb)
 
 def unlink(path)
   dir_fcb, file_fcb = find_dir_entry(path)
@@ -103,7 +103,7 @@ def find_dir_entry(path)
 
 def create_file(mode)
 
-def update_file(file_fcb)
+def update_file(&file_fcb)
 
 def remove_file(file_fcb)
 

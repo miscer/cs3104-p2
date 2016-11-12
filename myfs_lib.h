@@ -118,7 +118,7 @@ int find_file(const char*, struct my_user, struct my_fcb*);
  * @return Result of the traversal algorithm
  */
 int find_dir_entry(const char*, struct my_user, struct my_fcb*, struct my_fcb*);
-void update_file(struct my_fcb);
+void update_file(struct my_fcb*);
 void remove_file(struct my_fcb*);
 void truncate_file(struct my_fcb*, size_t);
 void read_file_data(struct my_fcb, void*, size_t, off_t);

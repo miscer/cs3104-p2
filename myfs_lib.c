@@ -93,12 +93,12 @@ int read_file(uuid_t *id, struct my_fcb* file_fcb) {
   }
 }
 
-void update_file(struct my_fcb file_fcb) {
+void update_file(struct my_fcb* file_fcb) {
   puts("Updating file...");
-  print_id(&(file_fcb.id));
+  print_id(&(file_fcb->id));
   puts("\n");
 
-  write_db_object(file_fcb.id, &file_fcb, sizeof(struct my_fcb));
+  write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 }
 
 static size_t size_round_up_to(size_t num, size_t up_to) {
@@ -171,7 +171,7 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
   }
 
   file_fcb->size = size;
-  update_file(*file_fcb);
+  update_file(file_fcb);
 }
 
 static void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, off_t offset) {
@@ -410,7 +410,7 @@ void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name
   add_dir_entry(dir_fcb, file_fcb, name);
 
   file_fcb->nlink++;
-  update_file(*file_fcb);
+  update_file(file_fcb);
 }
 
 void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
@@ -418,7 +418,7 @@ void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* na
 
   if (file_fcb->nlink > 0) {
     file_fcb->nlink--;
-    update_file(*file_fcb);
+    update_file(file_fcb);
   }
 
   if (file_fcb->nlink == 0 && !is_file_open(file_fcb)) {

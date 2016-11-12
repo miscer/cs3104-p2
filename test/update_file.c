@@ -11,7 +11,7 @@ int main() {
   create_file(S_IRUSR, user, &file_fcb);
 
   file_fcb.mode |= S_IWUSR;
-  update_file(file_fcb);
+  update_file(&file_fcb);
 
   struct my_fcb check_fcb;
   read_file(&(file_fcb.id), &check_fcb);

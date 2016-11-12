@@ -43,7 +43,7 @@ int main() {
   assert(find_file("/file1/foo", user, &found_file) == MYFS_FIND_NO_DIR);
 
   dir1.mode &= ~S_IXUSR;
-  update_file(dir1);
+  update_file(&dir1);
 
   assert(find_file("/dir1/file3", user, &found_file) == MYFS_FIND_NO_ACCESS);
   assert(find_file("/dir1/foo", user, &found_file) == MYFS_FIND_NO_ACCESS);

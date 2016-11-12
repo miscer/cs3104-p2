@@ -164,7 +164,7 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
   file_fcb.atime = ubuf->actime;
   file_fcb.mtime = ubuf->modtime;
 
-  update_file(file_fcb);
+  update_file(&file_fcb);
 
   return 0;
 }
@@ -251,7 +251,7 @@ static int myfs_chmod(const char *path, mode_t mode){
   }
 
   file_fcb.mode = mode;
-  update_file(file_fcb);
+  update_file(&file_fcb);
 
   return 0;
 }
@@ -280,7 +280,7 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
 
   file_fcb.uid = uid;
   file_fcb.gid = gid;
-  update_file(file_fcb);
+  update_file(&file_fcb);
 
   return 0;
 }
@@ -619,7 +619,7 @@ void init_fs(){
       user, &root_dir_fcb);
 
     root_dir_fcb.nlink = 1;
-    update_file(root_dir_fcb);
+    update_file(&root_dir_fcb);
 
     printf("init_fs: writing updated root object\n");
 
