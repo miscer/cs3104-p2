@@ -1,5 +1,7 @@
 #include "myfs_lib.h"
 
+static struct my_open_file open_files[MY_MAX_OPEN_FILES];
+
 void read_db_object(uuid_t key, void* buffer, size_t size) {
   unqlite_int64 unqlite_size = size;
   int rc = unqlite_kv_fetch(pDb, key, KEY_SIZE, buffer, &unqlite_size);
@@ -495,5 +497,45 @@ char check_open_flags(struct my_fcb* fcb, struct my_user user, int flags) {
     return can_write(fcb, user);
   } else {
     return can_read(fcb, user);
+  }
+}
+
+int get_open_file(int fh, struct my_fcb* fcb) {
+  if (open_files[fh].used) {
+    read_db_object(open_files[fh].id, fcb, sizeof(struct my_fcb));
+    return 0;
+  } else {
+    return -1;
+  }
+}
+
+int add_open_file(struct my_fcb* file) {
+  int fh;
+  char found = 0;
+
+  for (fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
+    if (!open_files[fh].used) {
+      found = 1;
+      break;
+    }
+  }
+
+  if (found) {
+    uuid_copy(open_files[fh].id, file->id);
+    open_files[fh].open_count = 1;
+    open_files[fh].used = 1;
+
+    return fh;
+  } else {
+    return -1;
+  }
+}
+
+int remove_open_file(int fh) {
+  if (open_files[fh].used) {
+    open_files[fh].used = 0;
+    return 0;
+  } else {
+    return -1;
   }
 }

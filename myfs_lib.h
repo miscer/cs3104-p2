@@ -17,6 +17,12 @@ struct my_user {
   gid_t  gid; /**< Group ID */
 };
 
+struct my_open_file {
+  uuid_t id;
+  int open_count;
+  char used;
+};
+
 void read_db_object(uuid_t, void*, size_t);
 void write_db_object(uuid_t, void*, size_t);
 void delete_db_object(uuid_t);
@@ -101,3 +107,6 @@ char can_read(struct my_fcb*, struct my_user);
 char can_write(struct my_fcb*, struct my_user);
 char can_execute(struct my_fcb*, struct my_user);
 char check_open_flags(struct my_fcb*, struct my_user, int);
+int get_open_file(int, struct my_fcb*);
+int add_open_file(struct my_fcb*);
+int remove_open_file(int);

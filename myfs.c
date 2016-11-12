@@ -49,11 +49,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
   write_log("write_readdir(path=\"%s\", buf=0x%08x, filler=0x%08x, offset=%lld, fi=0x%08x)\n", path, buf, filler, offset, fi);
 
   struct my_fcb dir_fcb;
-
-  if (find_file(path, get_context_user(), &dir_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_readdir - ENOENT\n");
-    return -ENOENT;
-  }
+  get_open_file(fi->fh, &dir_fcb);
 
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
@@ -78,11 +74,7 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
   write_log("myfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
 
   struct my_fcb file_fcb;
-
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_read - ENOENT\n");
-    return -ENOENT;
-  }
+  get_open_file(fi->fh, &file_fcb);
 
   if (file_fcb.size > 0) {
     read_file_data(file_fcb, buf, size, offset);
@@ -124,6 +116,8 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     char* file_name = path_file_name(path_dup);
     link_file(&dir_fcb, &file_fcb, file_name);
     free(path_dup);
+
+    fi->fh = add_open_file(&file_fcb);
 
     return 0;
   }
@@ -167,11 +161,7 @@ static int myfs_write(const char *path, const char *buf, size_t size, off_t offs
   write_log("myfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
 
   struct my_fcb file_fcb;
-
-  if (find_file(path, get_context_user(), &file_fcb) != MYFS_FIND_FOUND) {
-    write_log("myfs_getattr - ENOENT\n");
-    return -ENOENT;
-  }
+  get_open_file(fi->fh, &file_fcb);
 
   write_file_data(&file_fcb, (char*)buf, size, offset);
 
@@ -485,23 +475,6 @@ static int myfs_rename(const char* from, const char* to) {
   return 0;
 }
 
-// OPTIONAL - included as an example
-// Flush any cached data.
-static int myfs_flush(const char *path, struct fuse_file_info *fi){
-  write_log("myfs_flush(path=\"%s\", fi=0x%08x)\n", path, fi);
-
-  return 0;
-}
-
-// OPTIONAL - included as an example
-// Release the file. There will be one call to release for each call to open.
-static int myfs_release(const char *path, struct fuse_file_info *fi){
-  write_log("myfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
-
-  return 0;
-}
-
-// OPTIONAL - included as an example
 // Open a file. Open should check if the operation is permitted for the given flags (fi->flags).
 // Read 'man 2 open'.
 static int myfs_open(const char *path, struct fuse_file_info *fi){
@@ -527,6 +500,17 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
     write_log("myfs_open - EACCES\n");
     return -EACCES;
   }
+
+  fi->fh = add_open_file(&file_fcb);
+
+  return 0;
+}
+
+// Release the file. There will be one call to release for each call to open.
+static int myfs_release(const char *path, struct fuse_file_info *fi){
+  write_log("myfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
+
+  remove_open_file(fi->fh);
 
   return 0;
 }
@@ -555,6 +539,17 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
     return -EACCES;
   }
 
+  fi->fh = add_open_file(&dir_fcb);
+
+  return 0;
+}
+
+// Release the directory. There will be one call to releasedir for each call to opendir.
+static int myfs_releasedir(const char *path, struct fuse_file_info *fi){
+  write_log("myfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
+
+  remove_open_file(fi->fh);
+
   return 0;
 }
 
@@ -568,8 +563,8 @@ static struct fuse_operations myfs_oper = {
   .utime = myfs_utime,
   .write = myfs_write,
   .truncate = myfs_truncate,
-  .flush = myfs_flush,
   .release = myfs_release,
+  .releasedir = myfs_releasedir,
   .unlink = myfs_unlink,
   .mkdir = myfs_mkdir,
   .rmdir = myfs_rmdir,
