@@ -591,27 +591,42 @@ int find_dir_entry(const char* const_path, struct my_user user, struct my_fcb* d
 }
 
 char* path_split(char** path) {
+  // strsep will modify path to point to the string after '/'
+  // it will return the original value of path, i.e. string before '/'
   char* head = strsep(path, "/");
 
   if (head == NULL) {
+    // path was empty
     return NULL;
+
   } else if (*head == '\0') {
+    // the first character of the string was '/'
+    // e.g. /bar -> head == "", bar == "bar"
+
     if (path != NULL) {
+      // there were more characters after the '/'
+      // ignore head and re-run the function
       return path_split(path);
     } else {
+      // this was the last character in the path
       return NULL;
     }
+
   } else {
+    // path started with a valid component
     return head;
   }
 }
 
 char* path_file_name(char* path) {
+  // keep splitting the path until we find the last component (file name)
   char* file_name = path_split(&path);
 
   while (path != NULL) {
     char* next_file_name = path_split(&path);
 
+    // if the last character in the path is '/', next_file_name will be NULL
+    // in this case we need to ignore the NULL
     if (next_file_name != NULL) {
       file_name = next_file_name;
     }
@@ -631,15 +646,19 @@ char is_file(struct my_fcb* fcb) {
 static char has_permission(struct my_fcb* fcb, struct my_user user,
     mode_t user_mode, mode_t group_mode, mode_t other_mode) {
   if (fcb->uid == user.uid) {
+    // user is owner of the file, check user permissions
     return (fcb->mode & user_mode) == user_mode;
   } else if (fcb->gid == user.gid) {
+    // user's group is owner of the file, check group permissions
     return (fcb->mode & group_mode) == group_mode;
   } else {
+    // user or group isn't owner, check others permissions
     return (fcb->mode & other_mode) == other_mode;
   }
 }
 
 struct my_user get_context_user() {
+  // copy UID and GID from FUSE context into the user struct
   struct fuse_context* context = fuse_get_context();
 
   struct my_user user = {
@@ -651,48 +670,59 @@ struct my_user get_context_user() {
 }
 
 char can_read(struct my_fcb* fcb, struct my_user user) {
+  // check user, group or other read permissions as appropriate
   return has_permission(fcb, user, S_IRUSR, S_IRGRP, S_IROTH);
 }
 
 char can_write(struct my_fcb* fcb, struct my_user user) {
+  // check user, group or other write permissions as appropriate
   return has_permission(fcb, user, S_IWUSR, S_IWGRP, S_IWOTH);
 }
 
 char can_execute(struct my_fcb* fcb, struct my_user user) {
+  // check user, group or other execute permissions as appropriate
   return has_permission(fcb, user, S_IXUSR, S_IXGRP, S_IXOTH);
 }
 
 char check_open_flags(struct my_fcb* fcb, struct my_user user, int flags) {
   if (flags & O_RDWR) {
+    // read-write
     return can_read(fcb, user) && can_write(fcb, user);
   } else if (flags & O_WRONLY) {
+    // write-only
     return can_write(fcb, user);
   } else {
+    // read-only
     return can_read(fcb, user);
   }
 }
 
 static int get_free_file_handle() {
+  // go through open file entries and look for an unused one
   for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
     if (!open_files[fh].used) {
       return fh;
     }
   }
 
+  // no unused entry found, too many files are open
   return -1;
 }
 
 static int find_open_file_handle(struct my_fcb* file) {
+  // go through open file entries and look for one with a matching UUID
   for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
     if (open_files[fh].used && uuid_compare(open_files[fh].id, file->id) == 0) {
       return fh;
     }
   }
 
+  // no matching entry found, file is not open
   return -1;
 }
 
 int get_open_file(int fh, struct my_fcb* fcb) {
+  // is the file handle actually valid?
   if (open_files[fh].used) {
     read_db_object(open_files[fh].id, fcb, sizeof(struct my_fcb));
     return 0;
@@ -705,11 +735,13 @@ int add_open_file(struct my_fcb* file) {
   int fh = get_free_file_handle();
 
   if (fh != -1) {
+    // able to open another file, save it's UUID and mark the entry as used
     uuid_copy(open_files[fh].id, file->id);
     open_files[fh].used = 1;
 
     return fh;
   } else {
+    // too many files are open
     return -1;
   }
 }
@@ -717,9 +749,11 @@ int add_open_file(struct my_fcb* file) {
 int remove_open_file(int fh) {
   struct my_fcb file;
 
+  // find the FCB for the file handle
   if (get_open_file(fh, &file) == 0) {
     open_files[fh].used = 0;
 
+    // the file was removed while it was open, remove it if it isn't open anywhere else
     if (file.nlink == 0 && !is_file_open(&file)) {
       remove_file(&file);
     }
