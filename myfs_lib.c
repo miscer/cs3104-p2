@@ -643,7 +643,7 @@ char is_file(struct my_fcb* fcb) {
   return (fcb->mode & S_IFREG) == S_IFREG;
 }
 
-static char has_permission(struct my_fcb* fcb, struct my_user user,
+char has_permission(struct my_fcb* fcb, struct my_user user,
     mode_t user_mode, mode_t group_mode, mode_t other_mode) {
   if (fcb->uid == user.uid) {
     // user is owner of the file, check user permissions
@@ -697,7 +697,7 @@ char check_open_flags(struct my_fcb* fcb, struct my_user user, int flags) {
   }
 }
 
-static int get_free_file_handle() {
+int get_free_file_handle() {
   // go through open file entries and look for an unused one
   for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
     if (!open_files[fh].used) {
@@ -706,18 +706,6 @@ static int get_free_file_handle() {
   }
 
   // no unused entry found, too many files are open
-  return -1;
-}
-
-static int find_open_file_handle(struct my_fcb* file) {
-  // go through open file entries and look for one with a matching UUID
-  for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
-    if (open_files[fh].used && uuid_compare(open_files[fh].id, file->id) == 0) {
-      return fh;
-    }
-  }
-
-  // no matching entry found, file is not open
   return -1;
 }
 
@@ -765,5 +753,13 @@ int remove_open_file(int fh) {
 }
 
 char is_file_open(struct my_fcb* file) {
-  return find_open_file_handle(file) != -1;
+  // go through open file entries and look for one with a matching UUID
+  for (int fh = 0; fh < MY_MAX_OPEN_FILES; fh++) {
+    if (open_files[fh].used && uuid_compare(open_files[fh].id, file->id) == 0) {
+      return 1;
+    }
+  }
+
+  // no matching entry found, file is not open
+  return 0;
 }

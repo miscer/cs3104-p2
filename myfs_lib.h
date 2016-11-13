@@ -285,6 +285,8 @@ char is_directory(struct my_fcb*);
  */
 char is_file(struct my_fcb*);
 
+char has_permission(struct my_fcb*, struct my_user, mode_t, mode_t, mode_t);
+
 /**
  * @brief Reads the user and group IDs from FUSE context
  * @return User struct with user and group IDs
@@ -323,6 +325,12 @@ char can_execute(struct my_fcb*, struct my_user);
  * @return 1 if the user can access the file as requested, 0 otherwise
  */
 char check_open_flags(struct my_fcb*, struct my_user, int);
+
+/**
+ * @brief Finds an unused file handle
+ * @return Unused file handle, or -1 if too many files are open
+ */
+int get_free_file_handle();
 
 /**
  * @brief Finds a file by its handle in the open file table
