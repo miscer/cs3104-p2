@@ -19,18 +19,24 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
 
   struct my_fcb file_fcb;
 
+  // try to find the file by its path and current user
   int result = find_file(path, get_context_user(), &file_fcb);
 
   if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access one of the parent directories
     write_log("myfs_getattr - EACCES\n");
     return -EACCES;
+
   } else if (result != MYFS_FIND_FOUND) {
+    // file does not exist
     write_log("myfs_getattr - ENOENT\n");
     return -ENOENT;
   }
 
+  // clear the stat struct
   memset(stbuf, 0, sizeof(struct stat));
 
+  // copy values from the FCB into the stat struct
   stbuf->st_mode = file_fcb.mode;
   stbuf->st_nlink = file_fcb.nlink;
   stbuf->st_uid = file_fcb.uid;
@@ -48,12 +54,14 @@ static int myfs_getattr(const char *path, struct stat *stbuf){
 static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi){
   write_log("write_readdir(path=\"%s\", buf=0x%08x, filler=0x%08x, offset=%lld, fi=0x%08x)\n", path, buf, filler, offset, fi);
 
+  // get the FCB of the directory by the file handle returned by opendir
   struct my_fcb dir_fcb;
   get_open_file(fi->fh, &dir_fcb);
 
   filler(buf, ".", NULL, 0);
   filler(buf, "..", NULL, 0);
 
+  // iterate directory entries
   struct my_dir_iter iter;
   iterate_dir_entries(&dir_fcb, &iter);
 
@@ -73,6 +81,7 @@ static int myfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
 static int myfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi){
   write_log("myfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
 
+  // get the FCB of the file by the file handle returned by open
   struct my_fcb file_fcb;
   get_open_file(fi->fh, &file_fcb);
 
@@ -98,21 +107,26 @@ static int myfs_read(const char *path, char *buf, size_t size, off_t offset, str
   }
 }
 
-// This file system only supports one file. Create should fail if a file has been created. Path must be '/<something>'.
+// Create a file.
 // Read 'man 2 creat'.
 static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi){
   write_log("myfs_create(path=\"%s\", mode=0%03o, fi=0x%08x)\n", path, mode, fi);
 
+  /** @var Parent directory FCB */
   struct my_fcb dir_fcb;
+  /** @var Created file FCB */
   struct my_fcb file_fcb;
 
+  // try to find the file (to check if it exists) and parent directory (to add to)
   int result = find_dir_entry(path, get_context_user(), &dir_fcb, &file_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
+    // parent directory does not exist
     write_log("myfs_create - ENOENT\n");
     return -ENOENT;
 
   } else if (result == MYFS_FIND_FOUND) {
+    // file already exists
     write_log("myfs_create - EEXIST\n");
     return -EEXIST;
 
@@ -120,43 +134,54 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     result == MYFS_FIND_NO_ACCESS ||
     !can_write(&dir_fcb, get_context_user())
   ) {
+    // user cannot access ancestor directory, or cannot write to parent directory
     write_log("myfs_create - EACCES\n");
     return -EACCES;
 
   } else {
+    // file does not exist and user has sufficient rights
+
+    // create a new file and write it to the database, save FCB to file_fcb
     create_file(mode, get_context_user(), &file_fcb);
 
+    // get the file name from the path and add the file to the parent directory
+    // path string needs to be duplicated because it will be modified by path_file_name
     char* path_dup = strdup(path);
     char* file_name = path_file_name(path_dup);
     link_file(&dir_fcb, &file_fcb, file_name);
     free(path_dup);
 
+    // add the file to open file table and get its file handle
     int fh = add_open_file(&file_fcb);
 
     if (fh < 0) {
+      // too many files are open
       write_log("myfs_create - ENFILE\n");
       return -ENFILE;
     }
 
+    // save the file handle for future calls
     fi->fh = fh;
 
     return 0;
   }
 }
 
-// Set update the times (actime, modtime) for a file. This FS only supports modtime.
+// Set update the times (actime, modtime) for a file.
 // Read 'man 2 utime'.
 static int myfs_utime(const char *path, struct utimbuf *ubuf){
   write_log("myfs_utime(path=\"%s\", ubuf=0x%08x)\n", path, ubuf);
 
   struct my_fcb file_fcb;
 
+  // try to find the file by its path and current user
   int result = find_file(path, get_context_user(), &file_fcb);
 
   if (
     result == MYFS_FIND_NO_DIR ||
     result == MYFS_FIND_NO_FILE
   ) {
+    // file does not exist
     write_log("myfs_utime - ENOENT\n");
     return -ENOENT;
 
@@ -164,13 +189,16 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
     result == MYFS_FIND_NO_ACCESS ||
     !can_write(&file_fcb, get_context_user())
   ) {
+    // user cannot access an ancestor directory or write to the file
     write_log("myfs_utime - EACCES\n");
     return -EACCES;
   }
 
+  // update the FCB
   file_fcb.atime = ubuf->actime;
   file_fcb.mtime = ubuf->modtime;
 
+  // write the updated FCB into the database
   update_file(&file_fcb);
 
   return 0;
@@ -181,20 +209,24 @@ static int myfs_utime(const char *path, struct utimbuf *ubuf){
 static int myfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi){
   write_log("myfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
 
+  // get the FCB by the file handle
   struct my_fcb file_fcb;
   get_open_file(fi->fh, &file_fcb);
 
   if (offset >= MY_MAX_FILE_SIZE) {
+    // cannot writer beyond the maximum file size
     write_log("myfs_write - EFBIG\n");
     return -EFBIG;
 
   } else if ((offset + size) > MY_MAX_FILE_SIZE) {
+    // cannot write beyond the maximum file size, but can write until it
     size = MY_MAX_FILE_SIZE - offset;
 
     write_file_data(&file_fcb, (char*)buf, size, offset);
     return size;
 
   } else {
+    // write range is ok
     write_file_data(&file_fcb, (char*)buf, size, offset);
     return size;
   }
@@ -207,6 +239,7 @@ static int myfs_truncate(const char *path, off_t newsize){
 
   struct my_fcb file_fcb;
 
+  // try to find the file by its path
   int result = find_file(path, get_context_user(), &file_fcb);
 
   if (
@@ -214,6 +247,7 @@ static int myfs_truncate(const char *path, off_t newsize){
     result == MYFS_FIND_NO_FILE ||
     !is_file(&file_fcb)
   ) {
+    // file does not exist, or is not a regular file
     write_log("myfs_truncate - ENOENT\n");
     return -ENOENT;
   }
@@ -222,10 +256,12 @@ static int myfs_truncate(const char *path, off_t newsize){
     result == MYFS_FIND_NO_ACCESS ||
     !can_write(&file_fcb, get_context_user())
   ) {
+    // cannot access an ancestor directory, or cannot write to the file
     write_log("myfs_getattr - EACCES\n");
     return -EACCES;
   }
 
+  // change the file size
   truncate_file(&file_fcb, newsize);
 
   return 0;
@@ -238,6 +274,7 @@ static int myfs_chmod(const char *path, mode_t mode){
 
   struct my_user user = get_context_user();
 
+  // try to find the file by its path
   struct my_fcb file_fcb;
   int result = find_file(path, user, &file_fcb);
 
@@ -245,18 +282,22 @@ static int myfs_chmod(const char *path, mode_t mode){
     result == MYFS_FIND_NO_DIR ||
     result == MYFS_FIND_NO_FILE
   ) {
+    // file does not exist
     write_log("myfs_chmod - ENOENT\n");
     return -ENOENT;
 
   } else if (result == MYFS_FIND_NO_ACCESS) {
+    // file cannot be accessed
     write_log("myfs_getattr - EACCES\n");
     return -EACCES;
 
   } else if (file_fcb.uid != user.uid) {
+    // the current user is not the owner of the file
     write_log("myfs_getattr - EPERM\n");
     return -EPERM;
   }
 
+  // update the FCB and write it to the database
   file_fcb.mode = mode;
   update_file(&file_fcb);
 
@@ -270,6 +311,7 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
 
   struct my_user user = get_context_user();
 
+  // try to find the file by its path
   struct my_fcb file_fcb;
   int result = find_file(path, user, &file_fcb);
 
@@ -277,14 +319,17 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
     result == MYFS_FIND_NO_DIR ||
     result == MYFS_FIND_NO_FILE
   ) {
+    // file does not exist
     write_log("myfs_chmod - ENOENT\n");
     return -ENOENT;
 
   } else if (result == MYFS_FIND_NO_ACCESS) {
+    // file cannot be accessed
     write_log("myfs_getattr - EACCES\n");
     return -EACCES;
   }
 
+  // update the FCB and write it to the database
   file_fcb.uid = uid;
   file_fcb.gid = gid;
   update_file(&file_fcb);
@@ -300,23 +345,30 @@ static int myfs_mkdir(const char *path, mode_t mode){
   struct my_fcb parent_fcb;
   struct my_fcb dir_fcb;
 
+  // try to find the directory and its parent directory by its path
   int result = find_dir_entry(path, get_context_user(), &parent_fcb, &dir_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
+    // parent directory does not exist
     write_log("myfs_mkdir - ENOENT\n");
     return -ENOENT;
 
   } else if (result == MYFS_FIND_FOUND) {
+    // directory already exists
     write_log("myfs_mkdir - EEXIST\n");
     return -EEXIST;
 
   } else if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access the parent directory
     write_log("myfs_mkdir - EACCES\n");
     return -EACCES;
 
   } else {
+    // create a new directory and write it to the database
     create_directory(mode, get_context_user(), &dir_fcb);
 
+    // get the directory name from the path and add the directory to the parent directory
+    // path string needs to be duplicated because it will be modified by path_file_name
     char* path_dup = strdup(path);
     char* dir_name = path_file_name(path_dup);
     link_file(&parent_fcb, &dir_fcb, dir_name);
@@ -334,12 +386,14 @@ static int myfs_unlink(const char *path){
   struct my_fcb dir_fcb;
   struct my_fcb file_fcb;
 
+  // try to find the file and its parent directory by its path
   int result = find_dir_entry(path, get_context_user(), &dir_fcb, &file_fcb);
 
   if (
     result == MYFS_FIND_NO_DIR ||
     result == MYFS_FIND_NO_FILE
   ) {
+    // file does not exist
     write_log("myfs_unlink - ENOENT\n");
     return -ENOENT;
 
@@ -347,14 +401,19 @@ static int myfs_unlink(const char *path){
     result == MYFS_FIND_NO_ACCESS ||
     !can_write(&dir_fcb, get_context_user())
   ) {
+    // user cannot access the file or write to the parent directory
     write_log("myfs_unlink - EACCES\n");
     return -EACCES;
 
   } else if (!is_file(&file_fcb)) {
+    // the file is not a regular file
     write_log("myfs_unlink - EPERM\n");
     return -EPERM;
   }
 
+  // get the file name from the path and remove the file from the parent directory
+  // path string needs to be duplicated because it will be modified by path_file_name
+  // if no other links point to the file and it is not open, it will be deleted
   char* path_dup = strdup(path);
   char* file_name = path_file_name(path_dup);
   unlink_file(&dir_fcb, &file_fcb, file_name);
@@ -371,12 +430,14 @@ static int myfs_rmdir(const char *path){
   struct my_fcb parent_fcb;
   struct my_fcb dir_fcb;
 
+  // try to find the drectory and its parent directory by its path
   int result = find_dir_entry(path, get_context_user(), &parent_fcb, &dir_fcb);
 
   if (
     result == MYFS_FIND_NO_DIR ||
     result == MYFS_FIND_NO_FILE
   ) {
+    // directory does not exist
     write_log("myfs_rmdir - ENOENT\n");
     return -ENOENT;
 
@@ -384,18 +445,24 @@ static int myfs_rmdir(const char *path){
     result == MYFS_FIND_NO_ACCESS ||
     !can_write(&parent_fcb, get_context_user())
   ) {
+    // user cannot access the directory or write to the parent directory
     write_log("myfs_rmdir - EACCES\n");
     return -EACCES;
 
   } else if (!is_directory(&dir_fcb)) {
+    // the found FCB is not a directory
     write_log("myfs_rmdir - ENOTDIR\n");
     return -ENOTDIR;
 
   } else if (get_directory_size(&dir_fcb) != 0) {
+    // the directory is not empty
     write_log("myfs_rmdir - ENOTEMPTY\n");
     return -ENOTEMPTY;
   }
 
+  // get the directory name from the path and remove the directory from the parent directory
+  // path string needs to be duplicated because it will be modified by path_file_name
+  // if the directory is not open, it will be deleted
   char* path_dup = strdup(path);
   char* file_name = path_file_name(path_dup);
   unlink_file(&parent_fcb, &dir_fcb, file_name);
@@ -404,22 +471,28 @@ static int myfs_rmdir(const char *path){
   return 0;
 }
 
+// Create a hard link to the file.
+// Read 'man 2 link'.
 static int myfs_link(const char* from, const char* to) {
   write_log("myfs_link(from=\"%s\", to=\"%s\")\n", from, to);
   int result;
 
+  // try to find the linked file
   struct my_fcb from_fcb;
   result = find_file(from, get_context_user(), &from_fcb);
 
   if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access the linked file's parent directory
     write_log("myfs_link - EACCES\n");
     return -EACCES;
 
   } else if (result != MYFS_FIND_FOUND) {
+    // linked file does not exist
     write_log("myfs_link - ENOENT\n");
     return -ENOENT;
 
   } else if (is_directory(&from_fcb)) {
+    // linked file is a directory
     write_log("myfs_link - EPERM\n");
     return -EPERM;
   }
@@ -427,21 +500,27 @@ static int myfs_link(const char* from, const char* to) {
   struct my_fcb to_fcb;
   struct my_fcb dir_fcb;
 
+  // try to find the file that would be replaced by the link
   result = find_dir_entry(to, get_context_user(), &dir_fcb, &to_fcb);
 
   if (result == MYFS_FIND_NO_DIR) {
+    // parent directory for the link does not exist
     write_log("myfs_link - ENOENT\n");
     return -ENOENT;
 
   } else if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access the parent directory
     write_log("myfs_link - EACCES\n");
     return -EACCES;
 
   } else if (result == MYFS_FIND_FOUND) {
+    // there is already a file on this path that would be replaced
     write_log("myfs_link - EEXIST\n");
     return -EEXIST;
 
   } else {
+    // get the link file name from the path and add the link to the parent directory
+    // path string needs to be duplicated because it will be modified by path_file_name
     char* to_path_dup = strdup(to);
     char* file_name = path_file_name(to_path_dup);
     link_file(&dir_fcb, &from_fcb, file_name);
@@ -451,47 +530,61 @@ static int myfs_link(const char* from, const char* to) {
   }
 }
 
+// Rename the file.
+// Read 'man 2 rename'
 static int myfs_rename(const char* from, const char* to) {
   write_log("myfs_rename(from=\"%s\", to=\"%s\")\n", from, to);
   int result;
 
+  // try to find the renamed file
   struct my_fcb from_dir;
   struct my_fcb from_file;
   result = find_dir_entry(from, get_context_user(), &from_dir, &from_file);
 
   if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access the original parent directory
     write_log("myfs_rename - EACCES\n");
     return -EACCES;
   } else if (result != MYFS_FIND_FOUND) {
+    // renamed file does not exist
     write_log("myfs_rename - ENOENT\n");
     return -ENOENT;
   }
 
+  // try to find the file that would be replaced
   struct my_fcb to_dir;
   struct my_fcb to_file;
   result = find_dir_entry(to, get_context_user(), &to_dir, &to_file);
 
   if (result == MYFS_FIND_NO_DIR) {
+    // parent directory does not exist
     write_log("myfs_rename - ENOENT\n");
     return -ENOENT;
   }
 
   if (result == MYFS_FIND_NO_ACCESS) {
+    // user cannot access the destination parent directory
     write_log("myfs_rename - EACCES\n");
     return -EACCES;
   }
 
+  // get the file names of the original and renamed files
   char* to_dup = strdup(to);
   char* to_file_name = path_file_name(to_dup);
 
   char* from_dup = strdup(from);
   char* from_file_name = path_file_name(from_dup);
 
+  // if there is already a file at the destination, remove it
   if (result == MYFS_FIND_FOUND) {
     unlink_file(&to_dir, &to_file, to_file_name);
   }
 
+  // remove the file from original directory and add it to the destination directory
   if (uuid_compare(from_dir.id, to_dir.id) == 0) {
+    // if these directories are the same, it means that both from_dir and to_dir
+    // contain the same FCB, but if we change one, the other one does not change
+    // we need to make sure to use only one of the FCBs in this case
     remove_dir_entry(&from_dir, from_file_name);
     add_dir_entry(&from_dir, &from_file, to_file_name);
   } else {
@@ -513,6 +606,7 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
   struct my_user user = get_context_user();
   struct my_fcb file_fcb;
 
+  // try to find the file by its path
   int result = find_file(path, user, &file_fcb);
 
   if (
@@ -520,6 +614,7 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
     result == MYFS_FIND_NO_FILE ||
     !is_file(&file_fcb)
   ) {
+    // the file does not exist or is not a file
     write_log("myfs_open - ENOENT\n");
     return -ENOENT;
 
@@ -527,17 +622,22 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
     result == MYFS_FIND_NO_ACCESS ||
     !check_open_flags(&file_fcb, user, fi->flags)
   ) {
+    // user cannot access the parent directory, or the opened file with the
+    // specified flags
     write_log("myfs_open - EACCES\n");
     return -EACCES;
   }
 
+  // open the file after creating it
   int fh = add_open_file(&file_fcb);
 
   if (fh < 0) {
+    // too many files are open
     write_log("myfs_open - ENFILE\n");
     return -ENFILE;
   }
 
+  // save the file handle for future calls
   fi->fh = fh;
 
   return 0;
@@ -547,6 +647,9 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
 static int myfs_release(const char *path, struct fuse_file_info *fi){
   write_log("myfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
 
+  // remove the file from the open file table
+  // if there are no other links pointing to it and is not open anywhere else,
+  // it will be deleted
   remove_open_file(fi->fh);
 
   return 0;
@@ -558,6 +661,7 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
   struct my_user user = get_context_user();
   struct my_fcb dir_fcb;
 
+  // try to find the directory by its path
   int result = find_file(path, user, &dir_fcb);
 
   if (
@@ -565,6 +669,7 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
     result == MYFS_FIND_NO_FILE ||
     !is_directory(&dir_fcb)
   ) {
+    // the directory does not exist, or is not a directory
     write_log("myfs_open - ENOENT\n");
     return -ENOENT;
 
@@ -572,17 +677,22 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
     result == MYFS_FIND_NO_ACCESS ||
     !check_open_flags(&dir_fcb, user, fi->flags)
   ) {
+    // the user cannot access a parent directory, or cannot open the directory
+    // wit the specified flags
     write_log("myfs_open - EACCES\n");
     return -EACCES;
   }
 
+  // add the directory to the open file table
   int fh = add_open_file(&dir_fcb);
 
   if (fh < 0) {
+    // too many files are open
     write_log("myfs_opendir - ENFILE\n");
     return -ENFILE;
   }
 
+  // save the file for future calls
   fi->fh = fh;
 
   return 0;
@@ -592,6 +702,9 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
 static int myfs_releasedir(const char *path, struct fuse_file_info *fi){
   write_log("myfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
 
+  // remove the directory from the open file table
+  // if there are no other links pointing to it and is not open anywhere else,
+  // it will be deleted
   remove_open_file(fi->fh);
 
   return 0;
@@ -633,17 +746,24 @@ void init_fs(){
 
     printf("init_fs: creating root directory\n");
 
+    // cannot user FUSE context because it has not been initialised yet
     struct my_user user = {.uid = getuid(), .gid = getgid()};
 
+    // create the root directory
     struct my_fcb root_dir_fcb;
     create_directory(S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH,
       user, &root_dir_fcb);
 
+    // normally the parent directory points to the child directory, but root
+    // directory has no parents
+    // set the number of links to 1 manually to keep it from being deleted
+    // after closing
     root_dir_fcb.nlink = 1;
     update_file(&root_dir_fcb);
 
     printf("init_fs: writing updated root object\n");
 
+    // save the root object to the database
     uuid_copy(root_object.id, root_dir_fcb.id);
     int rc = write_root();
 
