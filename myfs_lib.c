@@ -51,10 +51,6 @@ void create_directory(mode_t mode, struct my_user user, struct my_fcb *dir_fcb) 
   uuid_generate(dir_fcb->id);
   uuid_generate(dir_fcb->data);
 
-  puts("Creating directory...");
-  print_id(&(dir_fcb->id));
-  puts("\n");
-
   // write the FCB to the database
   write_db_object(dir_fcb->id, dir_fcb, sizeof(struct my_fcb));
 
@@ -80,10 +76,6 @@ void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
   uuid_generate(file_fcb->id);
   uuid_generate(file_fcb->data);
 
-  puts("Creating file...");
-  print_id(&(file_fcb->id));
-  puts("\n");
-
   // write the FCB to the database
   write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 
@@ -93,25 +85,16 @@ void create_file(mode_t mode, struct my_user user, struct my_fcb* file_fcb) {
 }
 
 int read_file(uuid_t *id, struct my_fcb* file_fcb) {
-  puts("Reading file...");
-  print_id(id);
-  puts("\n");
-
   if (has_db_object(*id)) {
     read_db_object(*id, file_fcb, sizeof(struct my_fcb));
     return 0;
 
   } else {
-    puts("File not found");
     return -1;
   }
 }
 
 void update_file(struct my_fcb* file_fcb) {
-  puts("Updating file...");
-  print_id(&(file_fcb->id));
-  puts("\n");
-
   write_db_object(file_fcb->id, file_fcb, sizeof(struct my_fcb));
 }
 
@@ -143,10 +126,6 @@ void get_block_indexes(size_t size, off_t offset, int* first, int* last) {
 }
 
 void remove_file(struct my_fcb* file_fcb) {
-  puts("Removing file...");
-  print_id(&(file_fcb->id));
-  puts("\n");
-
   // read the index block for the file
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
@@ -250,10 +229,6 @@ void read_block_to_buffer(uuid_t id, int block_num, void* buffer, size_t size, o
 }
 
 void read_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t offset) {
-  puts("Reading file data...");
-  print_id(&(file_fcb->id));
-  puts("\n");
-
   // read the index block from the database
   struct my_index index_block;
   read_db_object(file_fcb->data, &index_block, sizeof(index_block));
@@ -315,10 +290,6 @@ void write_buffer_to_block(uuid_t id, int block_num, void* buffer, size_t size, 
 }
 
 void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t offset) {
-  puts("Writing file data...");
-  print_id(&(file_fcb->id));
-  puts("\n");
-
   // if we are writing outside the current file data, it needs to be expanded
   // first to be able to accommodate the new data
   if ((offset + size) > file_fcb->size) {
