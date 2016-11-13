@@ -344,47 +344,68 @@ struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
 }
 
 void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  /** @var Size of the directory data */
   size_t data_size = dir_fcb->size;
+  /** @var Size of the data if there is a new entry created */
   size_t max_size = data_size + sizeof(struct my_dir_entry);
 
+  // load the directory data from the database
+  // buffer is big enough to add a new directory entry if needed
   void* dir_data = malloc(max_size);
   read_file_data(dir_fcb, dir_data, data_size, 0);
 
   struct my_dir_header* dir_header = dir_data;
+
+  /** @var Directory entry that is not currently used */
   struct my_dir_entry* free_entry;
 
   if (dir_header->first_free > -1) {
+    // there is an unused entry in the directory, we can use it
     free_entry = get_dir_entry(dir_data, dir_header->first_free);
 
+    // update the free list header to point to the next free entry
     dir_header->first_free = free_entry->next_free;
   } else {
+    // there are no free, unused entries in the directory
+    // we need to create a new one at the end
     free_entry = get_dir_entry(dir_data, dir_header->items);
 
+    // update the number of entries and directory data size
     dir_header->items++;
     data_size = max_size;
   }
 
+  // copy the entry name and file UUID into the entry
   strncpy(free_entry->name, name, MY_MAX_PATH - 1);
   uuid_copy(free_entry->fcb_id, file_fcb->id);
+
+  // mark the entry as used
   free_entry->used = 1;
 
+  // write changed directory data back to the database
   write_file_data(dir_fcb, dir_data, data_size, 0);
+
   free(dir_data);
 }
 
 int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
+  // load the directory data from the database
   void* dir_data = malloc(dir_fcb->size);
   read_file_data(dir_fcb, dir_data, dir_fcb->size, 0);
 
   struct my_dir_header* dir_header = dir_data;
 
+  /** @var Directory entry to be removed */
   struct my_dir_entry* dir_entry;
-  char found = 0;
-  int offset = 0;
 
-  for (; offset < dir_header->items; offset++) {
+  char found = 0;
+  int offset;
+
+  // find the entry to remove by the entry name
+  for (offset = 0; offset < dir_header->items; offset++) {
     dir_entry = get_dir_entry(dir_data, offset);
 
+    // skip unused entries
     if (!dir_entry->used) continue;
 
     if (strcmp(dir_entry->name, name) == 0) {
@@ -394,11 +415,14 @@ int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
   }
 
   if (found) {
+    // clear the directory entry, this also sets the used field to 0
     memset(dir_entry, 0, sizeof(struct my_dir_entry));
 
+    // add the directory entry to the start of the free list
     dir_entry->next_free = dir_header->first_free;
     dir_header->first_free = offset;
 
+    // write directory data back to the database
     write_file_data(dir_fcb, dir_data, dir_fcb->size, 0);
 
     return 0;
@@ -409,26 +433,28 @@ int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
 
 void iterate_dir_entries(struct my_fcb* dir_fcb, struct my_dir_iter* iter) {
   iter->position = 0;
-  iter->dir_data = malloc(dir_fcb->size);
 
+  // load the directory data from the database
+  iter->dir_data = malloc(dir_fcb->size);
   read_file_data(dir_fcb, iter->dir_data, dir_fcb->size, 0);
 }
 
 struct my_dir_entry* next_dir_entry(struct my_dir_iter* iter) {
   struct my_dir_header* dir_header = iter->dir_data;
 
+  // start to go through all the remaining directory entries
   while (iter->position < dir_header->items) {
-    struct my_dir_entry* entry =
-      iter->dir_data + sizeof(struct my_dir_header) +
-      iter->position * sizeof(struct my_dir_entry);
+    struct my_dir_entry* entry = get_dir_entry(iter->dir_data, iter->position);
 
     iter->position++;
 
+    // we found an used entry, return it
     if (entry->used) {
       return entry;
     }
   }
 
+  // there no used entries left
   return NULL;
 }
 
@@ -443,6 +469,7 @@ int get_directory_size(struct my_fcb* dir_fcb) {
   int dir_size = 0;
   struct my_dir_entry* entry;
 
+  // go through all directory entries and increase counter if we find an used entry
   while ((entry = next_dir_entry(&iter)) != NULL) {
     if (entry->used) dir_size++;
   }
@@ -453,60 +480,84 @@ int get_directory_size(struct my_fcb* dir_fcb) {
 }
 
 void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  // add file as an entry to the directory
   add_dir_entry(dir_fcb, file_fcb, name);
 
+  // update number of links pointing to the file
   file_fcb->nlink++;
   update_file(file_fcb);
 }
 
 void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+  // remove the entry for the file from the directory
   remove_dir_entry(dir_fcb, name);
 
+  // there are some links pointing to the file, remove one
   if (file_fcb->nlink > 0) {
     file_fcb->nlink--;
     update_file(file_fcb);
   }
 
+  // if no links point to the file and it is not open, delete it
   if (file_fcb->nlink == 0 && !is_file_open(file_fcb)) {
     remove_file(file_fcb);
   }
 }
 
 int find_file(const char* path, struct my_user user, struct my_fcb* file_fcb) {
+  // use find_dir_entry but do not use the found directory entry
   struct my_fcb dir_fcb;
   return find_dir_entry(path, user, &dir_fcb, file_fcb);
 }
 
 int find_dir_entry(const char* const_path, struct my_user user, struct my_fcb* dir_fcb, struct my_fcb* file_fcb) {
+  // read FCB of the root directory
   struct my_fcb root_dir;
   read_file(&(root_object.id), &root_dir);
 
+  // we start at the root directory
+  // if the path is '/' it will be returned as the file
   memcpy(file_fcb, &root_dir, sizeof(struct my_fcb));
 
+  // duplicate the path string so that we can modify it
+  // but store the original refernce so that we can free it later
   char* full_path = strdup(const_path);
   char* path = full_path;
 
+  // put the first path component into entry_name
+  // change path to contain the rest of the path
   char* entry_name = path_split(&path);
 
+  // if entry_name is NULL, it means we have exhausted the path and got to the
+  // requested file
+  // if it is NULL, it means we need to continue the tree traversal further
   while (entry_name != NULL) {
+    // the previously loaded file is expected to be a directory
+    // if it isn't, it means some directory in the path does not exist
     if (!is_directory(file_fcb)) {
       free(full_path);
       return MYFS_FIND_NO_DIR;
     }
 
+    // we need to check permissions while traversing the tree
+    // user needs to have execute permissions to access the directory entries
     if (!can_execute(file_fcb, user)) {
       free(full_path);
       return MYFS_FIND_NO_ACCESS;
     }
 
+    // we made sure this is a directory, copy it to dir_entry in case it's
+    // a parent directory of the file we're looking for
     memcpy(dir_fcb, file_fcb, sizeof(struct my_fcb));
 
+    // iterate directory entries
     struct my_dir_iter iter;
     iterate_dir_entries(dir_fcb, &iter);
 
     struct my_dir_entry* entry;
     char found = 0;
 
+    // go through the entries until we find a match
     while ((entry = next_dir_entry(&iter)) != NULL) {
       if (strcmp(entry_name, entry->name) == 0) {
         found = 1;
@@ -514,6 +565,10 @@ int find_dir_entry(const char* const_path, struct my_user user, struct my_fcb* d
       }
     }
 
+    // a match is found, read it into file_fcb and get to the next path component
+    // if this was the last component in the path, the while loop will stop and
+    // function will return the found file in file_fcb and its parent directory
+    // in dir_fcb
     if (found) {
       read_file(&(entry->fcb_id), file_fcb);
       entry_name = path_split(&path);
@@ -521,13 +576,17 @@ int find_dir_entry(const char* const_path, struct my_user user, struct my_fcb* d
 
     clean_dir_iterator(&iter);
 
+    // if directory entry does not exist...
     if (!found) {
       free(full_path);
+      // ... check if there were any other components remaining in the path
+      // if yes, it means that we did not find a parent directory
+      // otherwise we didn't find the file (last component of the path)
       return (path == NULL) ? MYFS_FIND_NO_FILE : MYFS_FIND_NO_DIR;
     }
   }
 
-  free(path);
+  free(full_path);
   return MYFS_FIND_FOUND;
 }
 
