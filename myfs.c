@@ -541,8 +541,11 @@ static int myfs_rename(const char* from, const char* to) {
   struct my_fcb from_file;
   result = find_dir_entry(from, get_context_user(), &from_dir, &from_file);
 
-  if (result == MYFS_FIND_NO_ACCESS) {
-    // user cannot access the original parent directory
+  if (
+    result == MYFS_FIND_NO_ACCESS ||
+    !can_write(&from_dir, get_context_user())
+  ) {
+    // user cannot access or write to the original parent directory
     write_log("myfs_rename - EACCES\n");
     return -EACCES;
   } else if (result != MYFS_FIND_FOUND) {
@@ -562,8 +565,11 @@ static int myfs_rename(const char* from, const char* to) {
     return -ENOENT;
   }
 
-  if (result == MYFS_FIND_NO_ACCESS) {
-    // user cannot access the destination parent directory
+  if (
+    result == MYFS_FIND_NO_ACCESS ||
+    !can_write(&to_dir, get_context_user())
+  ) {
+    // user cannot access or write to the destination parent directory
     write_log("myfs_rename - EACCES\n");
     return -EACCES;
   }
