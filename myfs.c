@@ -299,6 +299,7 @@ static int myfs_chmod(const char *path, mode_t mode){
 
   // update the FCB and write it to the database
   file_fcb.mode = mode;
+  file_fcb.ctime = time(0);
   update_file(&file_fcb);
 
   return 0;
@@ -332,6 +333,7 @@ static int myfs_chown(const char *path, uid_t uid, gid_t gid){
   // update the FCB and write it to the database
   file_fcb.uid = uid;
   file_fcb.gid = gid;
+  file_fcb.ctime = time(0);
   update_file(&file_fcb);
 
   return 0;
