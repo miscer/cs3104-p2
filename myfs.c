@@ -131,7 +131,14 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     link_file(&dir_fcb, &file_fcb, file_name);
     free(path_dup);
 
-    fi->fh = add_open_file(&file_fcb);
+    int fh = add_open_file(&file_fcb);
+
+    if (fh < 0) {
+      write_log("myfs_create - ENFILE\n");
+      return -ENFILE;
+    }
+
+    fi->fh = fh;
 
     return 0;
   }
@@ -524,7 +531,14 @@ static int myfs_open(const char *path, struct fuse_file_info *fi){
     return -EACCES;
   }
 
-  fi->fh = add_open_file(&file_fcb);
+  int fh = add_open_file(&file_fcb);
+
+  if (fh < 0) {
+    write_log("myfs_open - ENFILE\n");
+    return -ENFILE;
+  }
+
+  fi->fh = fh;
 
   return 0;
 }
@@ -562,7 +576,14 @@ static int myfs_opendir(const char *path, struct fuse_file_info *fi){
     return -EACCES;
   }
 
-  fi->fh = add_open_file(&dir_fcb);
+  int fh = add_open_file(&dir_fcb);
+
+  if (fh < 0) {
+    write_log("myfs_opendir - ENFILE\n");
+    return -ENFILE;
+  }
+
+  fi->fh = fh;
 
   return 0;
 }
