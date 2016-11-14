@@ -4,7 +4,7 @@
 
 # Overview
 
-In this practical my task was to implement a simple userspace file system using FUSE. The file system uses UnQLite for storing the file data and meta-data.
+In this practical my task was to implement a simple user-space file system using FUSE. The file system uses UnQLite for storing the file data and meta-data.
 
 The file system has a tree directory hierarchy where directories can contain both files and directories. Each file and directory has standard meta-data attached to it. Files can be created, updated and deleted. Files have dynamic size up to a certain limit. Hard links and renaming files is supported.
 
@@ -35,7 +35,7 @@ Each data block can be accessed by its UUID. These UUIDs are stored in an index 
 
 ### Creating, updating and deleting
 
-When creating a file, its UUID is generated and meta-data (UID, GID, mode) initialised to specified values in the file control block. The FCB is then stored in the database. Additionaly, the UUID of the index block of the file is generated. An empty index block is then created and stored in the database.
+When creating a file, its UUID is generated and meta-data (UID, GID, mode) initialised to specified values in the file control block. The FCB is then stored in the database. Additionally, the UUID of the index block of the file is generated. An empty index block is then created and stored in the database.
 
 To update the file meta-data, the FCB struct is modified and immediately stored in the database, replacing the old file control block.
 
@@ -122,7 +122,7 @@ Not all directory entries are used. For example, if a file is removed from the d
 
 For this there are two extra fields in the entry struct. One is for recording whether the entry is currently used. The second one is the offset of the next free entry. This, together with the first unused entry offset in the header, forms a free list of unused directory entries. If there is no next free entry, the offset is set to -1.
 
-The offsets are essentialy indexes in the array containing all directory entries. But since this array has a dynamic number of entries, it cannot be declared as an array type.
+The offsets are essentially indexes in the array containing all directory entries. But since this array has a dynamic number of entries, it cannot be declared as an array type.
 
 A diagram showing the layout of directory structs and the free list is in Figure \ref{fig:directorystructs}.
 
