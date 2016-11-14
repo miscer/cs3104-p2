@@ -70,7 +70,7 @@ last_block = round_up_to(size, BLOCK_SIZE) / BLOCK_SIZE - 1
 
 Once we have the values, we need to iterate through the blocks in the range and either read from or write to them.
 
-For this I have made two functions that have the block UUID, number (i.e. the index in the index block array), buffer, size and offset as parameters. These functions then calculate the position of the block in relation to the part of the file that is being accessed. There are four cases for the relative position:
+For this I have made two functions that have the block UUID, block number (i.e. the index in the index block array), buffer, size and offset as parameters. These functions then calculate the position of the block relative to the part of the file that is being accessed. There are four cases for the relative position:
 
 * Buffer starts and ends in the block
 * Buffer starts in this block and ends in some other block
