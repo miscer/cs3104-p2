@@ -181,8 +181,9 @@ void truncate_file(struct my_fcb* file_fcb, size_t size) {
     }
   }
 
-  // finally update file size
+  // finally update file size and modification time
   file_fcb->size = size;
+  file_fcb->mtime = time(0);
   update_file(file_fcb);
 }
 
@@ -308,6 +309,10 @@ void write_file_data(struct my_fcb* file_fcb, void* buffer, size_t size, off_t o
   for (int block = first_block; block <= last_block; block++) {
     write_buffer_to_block(index_block.entries[block], block, buffer, size, offset);
   }
+
+  // finally update modification time
+  file_fcb->mtime = time(0);
+  update_file(file_fcb);
 }
 
 struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
