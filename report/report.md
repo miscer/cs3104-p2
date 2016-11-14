@@ -423,6 +423,16 @@ At the moment the index block takes $2^{16} \times 16\,\text{B} = 1\,\text{MiB}$
 
 Currently the directory entries are stored in an unsorted array. This makes searching for an entry slow, as we cannot use binary search. While we could make sure the entries are sorted, this would slow down adding entries to the directory. A binary tree could be possibly used to store the entries in a way that would allow efficient adding, removing and search.
 
+# Problems
+
+During development I have faced some obstacles, but I have managed to find a solution to each of them.
+
+At the beginning I found out that FUSE works only on Linux and not on my computer. This was solved easily by creating a virtual machine with Fedora installed using Vagrant. The code was then synchronised between my computer and the VM and compiled and run on the VM.
+
+Second problem was that it was not clear to me how to use the `uuid_t` type and how pointers to it work. However, after finding out that it is actually an array I was able to work with them correctly.
+
+The third major problem was with handling large files. My test code had to allocate the memory for the large file twice (to be able to write to the file system, then read from it and then check if the data is equal). On top of that the file system was also allocating a large block of memory for the data. This resulted in the OS terminating the program. The solution was to optimise the read and write code to not use large blocks of memory.
+
 # Conclusion
 
 I have implemented a simple file system that is able to store files and directories in an object database. The system uses indexed allocation to optimise file access for large files. There are reasonable limits applied to file sizes.
