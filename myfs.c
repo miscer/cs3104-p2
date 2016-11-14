@@ -148,8 +148,15 @@ static int myfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
     // path string needs to be duplicated because it will be modified by path_file_name
     char* path_dup = strdup(path);
     char* file_name = path_file_name(path_dup);
-    link_file(&dir_fcb, &file_fcb, file_name);
+    int result = link_file(&dir_fcb, &file_fcb, file_name);
     free(path_dup);
+
+    if (result < 0) {
+      // the parent directory does not have space left to add the file
+      remove_file(&file_fcb);
+      write_log("myfs_create - EFBIG\n");
+      return -EFBIG;
+    }
 
     // add the file to open file table and get its file handle
     int fh = add_open_file(&file_fcb);
@@ -373,8 +380,15 @@ static int myfs_mkdir(const char *path, mode_t mode){
     // path string needs to be duplicated because it will be modified by path_file_name
     char* path_dup = strdup(path);
     char* dir_name = path_file_name(path_dup);
-    link_file(&parent_fcb, &dir_fcb, dir_name);
+    int result = link_file(&parent_fcb, &dir_fcb, dir_name);
     free(path_dup);
+
+    if (result < 0) {
+      // the parent directory does not have space left to add the directory
+      remove_file(&dir_fcb);
+      write_log("myfs_mkdir - EFBIG\n");
+      return -EFBIG;
+    }
 
     return 0;
   }
@@ -525,8 +539,14 @@ static int myfs_link(const char* from, const char* to) {
     // path string needs to be duplicated because it will be modified by path_file_name
     char* to_path_dup = strdup(to);
     char* file_name = path_file_name(to_path_dup);
-    link_file(&dir_fcb, &from_fcb, file_name);
+    result = link_file(&dir_fcb, &from_fcb, file_name);
     free(to_path_dup);
+
+    if (result < 0) {
+      // the parent directory does not have space left to add the link
+      write_log("myfs_link - EFBIG\n");
+      return -EFBIG;
+    }
 
     return 0;
   }
@@ -594,14 +614,20 @@ static int myfs_rename(const char* from, const char* to) {
     // contain the same FCB, but if we change one, the other one does not change
     // we need to make sure to use only one of the FCBs in this case
     remove_dir_entry(&from_dir, from_file_name);
-    add_dir_entry(&from_dir, &from_file, to_file_name);
+    result = add_dir_entry(&from_dir, &from_file, to_file_name);
   } else {
     remove_dir_entry(&from_dir, from_file_name);
-    add_dir_entry(&to_dir, &from_file, to_file_name);
+    result = add_dir_entry(&to_dir, &from_file, to_file_name);
   }
 
   free(to_dup);
   free(from_dup);
+
+  if (result < 0) {
+    // unable to add directory entry because the directory is too big
+    write_log("myfs_rename - EFBIG\n");
+    return -EFBIG;
+  }
 
   return 0;
 }

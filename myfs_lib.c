@@ -314,7 +314,7 @@ struct my_dir_entry* get_dir_entry(void* dir_data, int offset) {
   return dir_data + sizeof(struct my_dir_header) + offset * sizeof(struct my_dir_entry);
 }
 
-void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+int add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
   /** @var Size of the directory data */
   size_t data_size = dir_fcb->size;
   /** @var Size of the data if there is a new entry created */
@@ -338,7 +338,15 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
     dir_header->first_free = free_entry->next_free;
   } else {
     // there are no free, unused entries in the directory
-    // we need to create a new one at the end
+
+    // check if we are able to increase the file size
+    if (max_size > MY_MAX_FILE_SIZE) {
+      // no space left for the new entry
+      free(dir_data);
+      return -1;
+    }
+
+    // create a new entry at the end
     free_entry = get_dir_entry(dir_data, dir_header->items);
 
     // update the number of entries and directory data size
@@ -357,6 +365,8 @@ void add_dir_entry(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* 
   write_file_data(dir_fcb, dir_data, data_size, 0);
 
   free(dir_data);
+
+  return 0;
 }
 
 int remove_dir_entry(struct my_fcb* dir_fcb, const char* name) {
@@ -450,13 +460,19 @@ int get_directory_size(struct my_fcb* dir_fcb) {
   return dir_size;
 }
 
-void link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
+int link_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {
   // add file as an entry to the directory
-  add_dir_entry(dir_fcb, file_fcb, name);
+  int result = add_dir_entry(dir_fcb, file_fcb, name);
+
+  if (result < 0) {
+    return -1;
+  }
 
   // update number of links pointing to the file
   file_fcb->nlink++;
   update_file(file_fcb);
+
+  return 0;
 }
 
 void unlink_file(struct my_fcb* dir_fcb, struct my_fcb* file_fcb, const char* name) {

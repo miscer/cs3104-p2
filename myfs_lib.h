@@ -164,14 +164,15 @@ void write_file_data(struct my_fcb*, void*, size_t, off_t);
  * @param dir_fcb Pointer to the FCB of the directory
  * @param file_fcb Pointer to the FCB of the added file
  * @param name Name of the new directory entry
+ * @return 0 if the entry was added, -1 if there is no space left
  */
-void add_dir_entry(struct my_fcb*, struct my_fcb*, const char*);
+int add_dir_entry(struct my_fcb*, struct my_fcb*, const char*);
 
 /**
  * @brief Removes an entry with the specified name from the directory
  * @param dir_fcb Pointer to the FCB of the directory
  * @param name Name of the removed directory entry
- * @return 1 if the entry was in the directory, 0 otherwise
+ * @return 0 if the entry was in the directory, -1 otherwise
  */
 int remove_dir_entry(struct my_fcb*, const char*);
 
@@ -223,8 +224,9 @@ struct my_dir_entry* get_dir_entry(void*, int);
  * @param dir_fcb Pointer to the FCB of the parent directory
  * @param file_fcb Pointer to the FCB of the linked file
  * @param name Directory entry name
+ * @return 0 if linking was successful, -1 otherwise
  */
-void link_file(struct my_fcb*, struct my_fcb*, const char*);
+int link_file(struct my_fcb*, struct my_fcb*, const char*);
 
 /**
  * @brief Removes a file to a directory and updates the number of links field
