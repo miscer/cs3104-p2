@@ -360,6 +360,29 @@ With this method no FUSE code was run and this enabled me to properly check if t
 
 ## External testing
 
+To check the FUSE code I have used shell scripts that tested the functionality. For example, a simple write test script would look like this:
+
+```bash
+TEST_DATA=testing
+
+REAL_FILE=./write.txt
+TEST_FILE=$1/write.txt
+
+echo ${TEST_DATA} > ${REAL_FILE}
+echo ${TEST_DATA} > ${TEST_FILE}
+
+cmp --silent ${REAL_FILE} ${TEST_FILE}
+
+if [ $? -ne 0 ]; then
+  echo "FAILED write test"
+  exit -1
+fi
+
+echo "PASSED write test"
+```
+
+I have usually run the test scripts after the tests described in the previous section to confirm that everything is working properly even when running the program with FUSE.
+
 ## Large files
 
 To check if the file system can handle the files with the maximum file size and reject bigger files, I have temporarily lowered the maximum file size limit to make it faster to test.
@@ -404,4 +427,4 @@ Currently the directory entries are stored in an unsorted array. This makes sear
 
 I have implemented a simple file system that is able to store files and directories in an object database. The system uses indexed allocation to optimise file access for large files. There are reasonable limits applied to file sizes.
 
-I found this practical quite challenging, however it was a good exercise in how file systems work and are implemented. 
+I found this practical quite challenging, however it was a good exercise in how file systems work and are implemented.
